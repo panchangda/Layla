@@ -1,0 +1,70 @@
+# Unreal Engine 5 gitignore
+
+# Ignore all build folders
+Binaries/
+Intermediate/
+Saved/
+
+# Ignore all user-specific folders
+.vs/
+.vscode/
+.idea/
+
+# Ignore all log files
+*.log
+
+# Ignore all autosave files
+_Auto*.uasset
+_Auto*.umap
+
+# Ignore Mac system files
+.DS_Store
+
+# Ignore crash report files
+Crashes/
+
+# Ignore cache files
+DerivedDataCache/
+
+# Ignore all .dll, .lib, .exp, .pdb, .ilk files in project directory
+*.dll
+*.lib
+*.exp
+*.pdb
+*.ilk
+
+# Ignore all .exe files in project directory
+*.exe
+
+# Ignore specific UnrealEd and other editor files
+*.uasset.*
+*.umap.*
+
+# Ignore NvCloth assets
+*.nvcloth
+
+# Ignore all .uplugin and .uproject files
+
+# Ignore all .sln and .suo files
+*.sln
+*.suo
+
+# Ignore all .db and .opensdf files
+*.db
+*.opensdf
+
+# Ignore all .opendb and .vc.db files
+*.opendb
+*.vc.db
+
+# Ignore all .VC.opendb files
+*.VC.opendb
+
+# Ignore all .ipch files
+*.ipch
+
+# Ignore all .sdf files
+*.sdf
+
+# Ignore all .bak files
+*.bak
