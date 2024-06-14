@@ -10,11 +10,21 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
+#include "Naive/LaylaWeapon.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
 //////////////////////////////////////////////////////////////////////////
 // ALaylaCharacter
+
+void ALaylaCharacter::EquipWeapon()
+{
+	if(CurrentWeaponClass)
+	{
+		CurrentWeapon = NewObject<ULaylaWeapon>(this, CurrentWeaponClass);
+		CurrentWeapon->OnEquipped();
+	}
+}
 
 ALaylaCharacter::ALaylaCharacter()
 {
@@ -86,6 +96,14 @@ void ALaylaCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 
 		// Looking
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ALaylaCharacter::Look);
+		
+		EnhancedInputComponent->BindAction(CrouchAction, ETriggerEvent::Triggered, this, &ALaylaCharacter::UpdateCrouchState);
+		
+		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Triggered, this, &ALaylaCharacter::Interact);
+
+		EnhancedInputComponent->BindAction(AimAction, ETriggerEvent::Triggered, this, &ALaylaCharacter::Aim);
+		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Triggered, this, &ALaylaCharacter::Fire);
+		EnhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Triggered, this, &ALaylaCharacter::Reload);
 	}
 	else
 	{
@@ -127,4 +145,32 @@ void ALaylaCharacter::Look(const FInputActionValue& Value)
 		AddControllerYawInput(LookAxisVector.X);
 		AddControllerPitchInput(LookAxisVector.Y);
 	}
+}
+
+void ALaylaCharacter::Fire(const FInputActionValue& Value)
+{
+	PlayAnimMontage(FireMontage);
+	CurrentWeapon->Fire();
+}
+
+void ALaylaCharacter::Reload(const FInputActionValue& Value)
+{
+	PlayAnimMontage(ReloadMontage);
+	CurrentWeapon->Reload();
+}
+
+void ALaylaCharacter::UpdateCrouchState(const FInputActionValue& Value)
+{
+	bIsCrouched = !bIsCrouched;
+}
+
+void ALaylaCharacter::Interact(const FInputActionValue& Value)
+{
+	
+	
+}
+
+void ALaylaCharacter::Aim(const FInputActionValue& Value)
+{
+	
 }
