@@ -33,10 +33,12 @@ APawn* ULaylaEquipment::GetTypedPawn(TSubclassOf<APawn> PawnType) const
 
 void ULaylaEquipment::OnEquipped()
 {
+	
 }
 
 void ULaylaEquipment::OnUnequipped()
 {
+	
 }
 
 // For Network Rep

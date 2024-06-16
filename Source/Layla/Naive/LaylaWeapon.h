@@ -48,10 +48,16 @@ protected:
 	FLaylaAnimLayerSelectionSet UneuippedAnimSet;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Animation)
-	UAnimMontage* FireMontage;
+	UAnimMontage* CharacterFireMontage;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Animation)
-	UAnimMontage* ReloadMontage;
+	UAnimMontage* CharacterReloadMontage;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Animation)
+	UAnimMontage* WeaponFireMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Animation)
+	UAnimMontage* WeaponReloadMontage;
 	
 	// Choose the best layer from EquippedAnimSet or UneuippedAnimSet based on the specified gameplay tags
 	UFUNCTION(BlueprintCallable, BlueprintPure=false, Category=Animation)

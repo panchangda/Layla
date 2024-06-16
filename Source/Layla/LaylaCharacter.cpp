@@ -10,6 +10,9 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
+#include "VectorTypes.h"
+#include "Naive/LaylaEquipmentManager.h"
+#include "Naive/LaylaPickup.h"
 #include "Naive/LaylaWeapon.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
@@ -17,13 +20,22 @@ DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 //////////////////////////////////////////////////////////////////////////
 // ALaylaCharacter
 
-void ALaylaCharacter::EquipWeapon()
+bool ALaylaCharacter::LineTraceAlongCamera(FHitResult& HitResult)
 {
-	if(CurrentWeaponClass)
-	{
-		CurrentWeapon = NewObject<ULaylaWeapon>(this, CurrentWeaponClass);
-		CurrentWeapon->OnEquipped();
-	}
+	FVector CameraLocation = FollowCamera->GetComponentLocation();
+	FRotator CameraRotation = GetController()->GetControlRotation();
+	FVector CameraViewNearEnd = CameraLocation + CameraRotation.Vector() * 500.0f;
+	FVector CameraViewFarEnd = CameraLocation + CameraRotation.Vector() * 20000000.0f;
+
+	
+	FVector SpawnLocation = FVector(0.0, 0.0, 0.0);
+	FRotator SpawnRotation = (CameraViewFarEnd - SpawnLocation).Rotation();	
+	DrawDebugLine(GetWorld(), CameraLocation, CameraViewFarEnd,  FColor::Red);
+	
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(this);
+	
+	return GetWorld()->LineTraceSingleByChannel(HitResult, CameraLocation, CameraViewFarEnd, ECC_Visibility, QueryParams);
 }
 
 ALaylaCharacter::ALaylaCharacter()
@@ -52,8 +64,9 @@ ALaylaCharacter::ALaylaCharacter()
 	// Create a camera boom (pulls in towards the player if there is a collision)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
-	CameraBoom->TargetArmLength = 400.0f; // The camera follows at this distance behind the character	
+	CameraBoom->TargetArmLength = 300.0f; // The camera follows at this distance behind the character	
 	CameraBoom->bUsePawnControlRotation = true; // Rotate the arm based on the controller
+	CameraBoom->SocketOffset = FVector(100.0f, 50.0f, 60.0f); // Relatively move end of spring arm, for CrossHair and so on 
 
 	// Create a follow camera
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
@@ -62,12 +75,37 @@ ALaylaCharacter::ALaylaCharacter()
 
 	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
 	// are set in the derived blueprint asset named ThirdPersonCharacter (to avoid direct content references in C++)
+
+
+	// Initialize EquipmentManager
+	EquipmentManager = CreateDefaultSubobject<ULaylaEquipmentManager>(TEXT("EquipmentManager"));
 }
 
 void ALaylaCharacter::BeginPlay()
 {
 	// Call the base class  
 	Super::BeginPlay();
+}
+
+void ALaylaCharacter::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+
+	FHitResult HitResult;
+	if (LineTraceAlongCamera(HitResult))
+	{
+		AActor* HitActor = HitResult.GetActor();
+		// 检查是否是我们感兴趣的目标类型
+		if (HitActor->IsA(ALaylaPickup::StaticClass()))
+		{
+			// 显示UI
+			ALaylaPickup* PickupActor = Cast<ALaylaPickup>(HitActor);
+			if(PickupActor && UE::Geometry::Distance(PickupActor->GetActorLocation(), GetActorLocation()) < 300.0f)
+			{
+				PickupActor->bIsBeingInspected = true;
+			}
+		}
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -149,14 +187,12 @@ void ALaylaCharacter::Look(const FInputActionValue& Value)
 
 void ALaylaCharacter::Fire(const FInputActionValue& Value)
 {
-	PlayAnimMontage(FireMontage);
-	CurrentWeapon->Fire();
+	EquipmentManager->CurrentWeaponFire();
 }
 
 void ALaylaCharacter::Reload(const FInputActionValue& Value)
 {
-	PlayAnimMontage(ReloadMontage);
-	CurrentWeapon->Reload();
+	EquipmentManager->CurrentWeaponReload();
 }
 
 void ALaylaCharacter::UpdateCrouchState(const FInputActionValue& Value)
@@ -164,13 +200,44 @@ void ALaylaCharacter::UpdateCrouchState(const FInputActionValue& Value)
 	bIsCrouched = !bIsCrouched;
 }
 
+// Interact with 
 void ALaylaCharacter::Interact(const FInputActionValue& Value)
 {
-	
+	FHitResult HitResult;
+	if (LineTraceAlongCamera(HitResult))
+	{
+		AActor* HitActor = HitResult.GetActor();
+		// 检查是否是我们感兴趣的目标类型
+		if (HitActor->IsA(ALaylaPickup::StaticClass()))
+		{
+			// 显示UI
+			ALaylaPickup* PickupActor = Cast<ALaylaPickup>(HitActor);
+			if(PickupActor && UE::Geometry::Distance(PickupActor->GetActorLocation(), GetActorLocation()) < 300.0f)
+			{
+
+				EquipmentManager->EquipmentItem(PickupActor->EquipmentType);
+				PickupActor->OnPickup();
+				
+			}
+		}
+	}
 	
 }
 
 void ALaylaCharacter::Aim(const FInputActionValue& Value)
 {
-	
+	// haven't started aiming 
+	if(!isAiming)
+	{
+		CameraBoom->TargetArmLength = 250.0f;
+		CameraBoom->SocketOffset = FVector(100.0f, 45.0f, 70.0f); // Relatively move end of spring arm, for CrossHair and so on
+		FollowCamera->SetFieldOfView(70.0f);
+	}
+	else // already at aiming state 
+	{
+		CameraBoom->TargetArmLength = 400.0f;
+		CameraBoom->SocketOffset = FVector(100.0f, 50.0f, 60.0f); // Relatively move end of spring arm, for CrossHair and so on
+		FollowCamera->SetFieldOfView(90.0f);
+	}
+	isAiming = !isAiming;
 }

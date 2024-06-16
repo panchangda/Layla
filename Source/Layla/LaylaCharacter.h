@@ -8,6 +8,7 @@
 #include "Logging/LogMacros.h"
 #include "LaylaCharacter.generated.h"
 
+class ULaylaEquipmentManager;
 class ULaylaWeapon;
 class USpringArmComponent;
 class UCameraComponent;
@@ -66,25 +67,14 @@ public:
 	/** Interact Input Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* InteractAction;
+	
 
-
-
-
-	// Weapon Class and Weapon Animation related
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Weapon)
-	TSubclassOf<ULaylaWeapon> CurrentWeaponClass;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Weapon)
-	TObjectPtr<ULaylaWeapon> CurrentWeapon;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
+	ULaylaEquipmentManager* EquipmentManager;
 	
 	UFUNCTION(BlueprintCallable)
-	void EquipWeapon();
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Animation")
-	UAnimMontage* FireMontage;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Animation")
-	UAnimMontage* ReloadMontage;
-
+	bool LineTraceAlongCamera(FHitResult& HitResult);
+	
 public:
 	ALaylaCharacter();
 	
@@ -99,17 +89,21 @@ protected:
 
 	// for animation update
 	void UpdateCrouchState(const FInputActionValue& Value);
-
+	bool isCrouching;
+	
 	// interact with interactable objects
 	void Interact(const FInputActionValue& Value);
-
+	bool isInteracting;
+	
 	// Weapon related actions
 	void Aim(const FInputActionValue& Value);
+	bool isAiming;
 	
 	void Fire(const FInputActionValue& Value);
-
-	void Reload(const FInputActionValue& Value);
+	bool isFiring;
 	
+	void Reload(const FInputActionValue& Value);
+	bool isReloading;
 	
 protected:
 	// APawn interface
@@ -117,6 +111,8 @@ protected:
 	
 	// To add mapping context
 	virtual void BeginPlay();
+	
+	virtual void Tick(float DeltaSeconds) override;
 
 public:
 	/** Returns CameraBoom subobject **/

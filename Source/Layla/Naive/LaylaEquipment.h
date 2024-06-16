@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameplayTagContainer.h"
 #include "UObject/Object.h"
 #include "LaylaEquipment.generated.h"
 
@@ -12,8 +13,7 @@ struct FLaylaEquipmentActorToSpawn
 {
 	GENERATED_BODY()
 
-	FLaylaEquipmentActorToSpawn()
-	{}
+	FLaylaEquipmentActorToSpawn(){}
 
 	UPROPERTY(EditAnywhere, Category=Equipment)
 	TSubclassOf<AActor> ActorToSpawn;
@@ -51,7 +51,10 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FLaylaEquipmentActorToSpawn DefaultActorsToSpawn;
-	
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FString EquipmentTypeString;
+
 private:
 	
 	UPROPERTY(Replicated)

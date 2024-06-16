@@ -12,7 +12,9 @@ public class Layla : ModuleRules
 		{
 			"Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", 
 			"GameplayAbilities",
-			"GameplayTags"
+			"GameplayTags",
+			"UMG",
+			"SlateCore"
 		});
 	}
 }
