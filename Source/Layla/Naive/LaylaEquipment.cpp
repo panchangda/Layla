@@ -51,6 +51,8 @@ void ULaylaEquipment::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 }
 void ULaylaEquipment::SpawnEquipmentActors(const TArray<FLaylaEquipmentActorToSpawn>& ActorsToSpawn)
 {
+	if(ActorsToSpawn.Num() == 0) {return ;}
+	
 	if (APawn* OwningPawn = GetPawn())
 	{
 		USceneComponent* AttachTarget = OwningPawn->GetRootComponent();
@@ -77,7 +79,11 @@ void ULaylaEquipment::DestroyEquipmentActors()
 	{
 		if (Actor)
 		{
-			Actor->Destroy();
+			if(!Actor->Destroy())
+			{
+				UE_LOG(LogTemp, Warning, TEXT("Equipment SpanwedActor is not Destructable"))
+			}
 		}
 	}
+	SpawnedActors.Empty();
 }

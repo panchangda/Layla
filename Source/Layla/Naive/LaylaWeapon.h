@@ -29,16 +29,41 @@ class LAYLA_API ULaylaWeapon : public ULaylaEquipment
 	
 public:
 	ULaylaWeapon(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
+	void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const;
 	
 	virtual void OnEquipped() override;
 	
 	virtual void OnUnequipped() override;
 
 	UFUNCTION(BlueprintCallable)
-	void Fire();
+	void StartFire(const FVector& Location, const FRotator& Rotation);
 
 	UFUNCTION(BlueprintCallable)
+	void StopFire();
+
+	void PlayFireMontage();
+	
+	UFUNCTION(BlueprintCallable)
 	void Reload();
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Layla|Weapon")
+	int MaxAmmo=1;
+	UPROPERTY(Replicated, EditAnywhere, Category="Layla|Weapon")
+	int CurrAmmoInBackpack=1;
+	UPROPERTY(Replicated, EditAnywhere, Category="Layla|Weapon")
+	int CurrAmmoInMagazine=1;
+	UPROPERTY(Replicated, EditAnywhere, Category="Layla|Weapon")
+	int MagazineSize=0;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Layla|Weapon")
+	float FireRate = 1.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Layla|Weapon")
+	bool bIsRangedWeapon = true;
+	bool bIsFiring = false;
+	
+	UPROPERTY(EditDefaultsOnly, Category = "Layla|Weapon")
+	TSubclassOf<class ALaylaProjectile> ProjectileClass;
+
 	
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Animation)
@@ -64,7 +89,24 @@ protected:
 	TSubclassOf<UAnimInstance> PickBestAnimLayer(bool bEquipped, const FGameplayTagContainer& CosmeticTags) const;
 	
 
-	UFUNCTION(Server, Reliable)
-	void GenerateBullet();
+private:
+
+	FTimerHandle PlayMontageTimer;
+	FTimerHandle GenerateProjectileTimer;
+	FTimerHandle WeaponReloadTimer;
+	FTimerHandle WeaponReloadResetTimer;
+	
+	
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerGenerateProjectile();
+
+	bool bIsReloading = false;
+	void ResetReloadState();
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerWeaponReload();
+
+	FVector CameraLocation;
+	FRotator CameraRotation;
+	float LastFireTime;
 	
 };

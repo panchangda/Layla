@@ -50,7 +50,9 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Layla|Equipment")
 	// TArray<ULaylaEquipment* > EquipmentList;
 	TMap<FString, ULaylaEquipment*> EquipmentMap;
-	
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Layla|Equipment")
+	TSubclassOf<ULaylaWeapon> DefaultWeaponClass;
 
 	UFUNCTION(BlueprintCallable)
 	void ChangeCurrentWeapon(FString EquipmentTag);
@@ -61,14 +63,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void UnEquipmentItem(FString EquipmentTag);
 	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Layla|Weapon")
-	ULaylaWeapon* CurrentWeapon;
-
 	UFUNCTION(BlueprintCallable)
-	void CurrentWeaponFire();
+	ULaylaWeapon* GetCurrentWeapon();
 
-	UFUNCTION(BlueprintCallable)
-	void CurrentWeaponReload();
 	
 protected:
 	// Called when the game starts
@@ -81,4 +78,6 @@ public:
 
 private:
 	void AddWeapon();
+	
+	TObjectPtr<ULaylaWeapon> CurrentWeapon;
 };

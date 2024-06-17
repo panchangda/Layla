@@ -13,24 +13,31 @@ ULaylaEquipmentManager::ULaylaEquipmentManager()
 	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = true;
 
-	// ...
+	// Empty Equipment Map
 	EquipmentMap.Empty();
+
+	// Default Weapon Class
+	DefaultWeaponClass = ULaylaWeapon::StaticClass();
 }
 
 
 void ULaylaEquipmentManager::ChangeCurrentWeapon(FString EquipmentTag)
 {
-	if(ULaylaEquipment** Item = EquipmentMap.Find(EquipmentTag))
+	if(ULaylaEquipment** ItemPtr = EquipmentMap.Find(EquipmentTag))
 	{
-		if((*Item)->IsA(ULaylaWeapon::StaticClass()))
+		ULaylaWeapon* WeaponToEquip = Cast<ULaylaWeapon>(*ItemPtr);
+		if(WeaponToEquip && WeaponToEquip!= CurrentWeapon)
 		{
 			if(CurrentWeapon)
 			{
 				CurrentWeapon->OnUnequipped();
 			}
-			CurrentWeapon = Cast<ULaylaWeapon>(*Item);
+			CurrentWeapon = WeaponToEquip;
 			CurrentWeapon->OnEquipped();
 		}
+	}else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Can not Change Weapon: Does not Equip Corresponding Weapon Type!"));
 	}
 }
 
@@ -38,79 +45,96 @@ void ULaylaEquipmentManager::EquipmentItem(TSubclassOf<ULaylaEquipment> ItemClas
 {
 	ULaylaEquipment* ItemInstance = NewObject<ULaylaEquipment>(this->GetOwner(), ItemClass);
 	FString ItemClassTag = ItemInstance->EquipmentTypeString;
-	if(ULaylaEquipment** ItemPtr = EquipmentMap.Find(ItemClassTag))
+	// Existing Same Tag Item
+	if(ULaylaEquipment** ExistingItemPtr = EquipmentMap.Find(ItemClassTag))
 	{
-		ULaylaEquipment* Item = *ItemPtr;
-		// Is Same Equipment? Shotgun & Rifle have same ItemClassTag,
-		if(ItemClass == Item->GetClass())
+		ULaylaEquipment* ExistingItem = *ExistingItemPtr;
+		// Is Same Equipment Class? Shotgun & Rifle have same ItemClassTag, but is different equipment(weapon)
+		if(ItemClass == ExistingItem->GetClass())
 		{
-			if(Item->IsA(ULaylaWeapon::StaticClass()))
+			if(ExistingItem->IsA(ULaylaWeapon::StaticClass())) 			// Same Weapon Class Process Logic: Fill in Ammos?  
 			{
 				// CurrentWeapon->FillAmmos?
-			}else
+			}	
+			else 			// Same Other Equipment Class Process Logic...
 			{
 				
 			}
-
-		}else
+		}
+		// Existing Same Tag but Different Class:
+		else
 		{
-			Item->OnUnequipped();
-			
-			Item = ItemInstance;
+			ExistingItem->OnUnequipped();
+
+			if(ExistingItem == CurrentWeapon)
+			{
+				CurrentWeapon = Cast<ULaylaWeapon>(ItemInstance);
+			}
+			// Replace ExistingItem with new ItenInstance
+			EquipmentMap[ItemClassTag] = ItemInstance;
 			ItemInstance->OnEquipped();
 		}
-		
-			// if(CurrentWeapon)
-			// {
-			// 	CurrentWeapon->OnUnequipped();
-			// }
-			// CurrentWeapon = Cast<ULaylaWeapon>(*Item);
-			// CurrentWeapon->OnEquipped();
-	}else
+	}
+	// No Existing Same Tag Equipment:
+	else
 	{
 		EquipmentMap.Add(ItemClassTag, ItemInstance);
-		if(ItemInstance->IsA(ULaylaWeapon::StaticClass()))
+		if(ItemInstance->IsA(ULaylaWeapon::StaticClass())) // if Weapon Class: deal with CurrentWeapon Switch Logic
 		{
-			CurrentWeapon = Cast<ULaylaWeapon>(ItemInstance);
-			CurrentWeapon->OnEquipped();
+			
+			if(ItemClassTag == "PrimaryWeapon")  // Primary Weapon: Always be CurrentWeapon
+			{
+				if(CurrentWeapon){CurrentWeapon->OnUnequipped();}
+				CurrentWeapon = Cast<ULaylaWeapon>(ItemInstance);
+				CurrentWeapon->OnEquipped();	
+			}else if(ItemClassTag == "SecondaryWeapon" &&  // Secondary Weapon: Only Be CurrentWeapon when No Currrent Weapon or Current Weapon is Melee
+				( !CurrentWeapon  ||  CurrentWeapon->EquipmentTypeString == "MeleeWeapon"))
+			{
+				if(CurrentWeapon){CurrentWeapon->OnUnequipped();}
+				CurrentWeapon = Cast<ULaylaWeapon>(ItemInstance);
+				CurrentWeapon->OnEquipped();	
+			}else if(ItemClassTag == "MeleeWeapon" &&  !CurrentWeapon) // Melee Weapon: Only be CurrentWeapon when No Current Weapon
+			{
+				CurrentWeapon = Cast<ULaylaWeapon>(ItemInstance);
+				CurrentWeapon->OnEquipped();	
+			}
+		}else
+		{
+			// Equip new ItemInstance
+			ItemInstance->OnEquipped();
 		}
 	}
 }
 
 void ULaylaEquipmentManager::UnEquipmentItem(FString EquipmentTag)
 {
-	if(ULaylaEquipment** Item = EquipmentMap.Find(EquipmentTag))
+	if(ULaylaEquipment** ItemPtr = EquipmentMap.Find(EquipmentTag))
 	{
-		(*Item)->OnUnequipped();
-		if((*Item)->IsA(ULaylaWeapon::StaticClass()))
+		ULaylaEquipment* Item = *ItemPtr;
+		Item->OnUnequipped();
+		if(Item->IsA(ULaylaWeapon::StaticClass()))
 		{
-			CurrentWeapon = Cast<ULaylaWeapon>(*Item);
+			CurrentWeapon = Cast<ULaylaWeapon>(Item);
 		}
 	}
 }
 
-void ULaylaEquipmentManager::CurrentWeaponFire()
+ULaylaWeapon* ULaylaEquipmentManager::GetCurrentWeapon()
 {
-	if(CurrentWeapon)
-	{
-		CurrentWeapon->Fire();
-	}
+	return CurrentWeapon;
 }
 
-void ULaylaEquipmentManager::CurrentWeaponReload()
-{
-	if(CurrentWeapon)
-	{
-		CurrentWeapon->Reload();
-	}
-}
+
 
 // Called when the game starts
 void ULaylaEquipmentManager::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// ...
+
+	CurrentWeapon = NewObject<ULaylaWeapon>(this->GetOwner(), DefaultWeaponClass);
+	EquipmentMap.Add(CurrentWeapon->EquipmentTypeString, CurrentWeapon);
+	CurrentWeapon->OnEquipped();
 	
 }
 

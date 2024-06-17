@@ -50,13 +50,13 @@ public:
 	virtual void DestroyEquipmentActors();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FLaylaEquipmentActorToSpawn DefaultActorsToSpawn;
+	TArray<FLaylaEquipmentActorToSpawn> DefaultActorsToSpawn;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FString EquipmentTypeString;
 
-private:
-	
+		
 	UPROPERTY(Replicated)
 	TArray<TObjectPtr<AActor>> SpawnedActors;
+	
 };

@@ -14,6 +14,7 @@
 #include "Naive/LaylaEquipmentManager.h"
 #include "Naive/LaylaPickup.h"
 #include "Naive/LaylaWeapon.h"
+#include "Net/UnrealNetwork.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
@@ -22,8 +23,7 @@ DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
 bool ALaylaCharacter::LineTraceAlongCamera(FHitResult& HitResult)
 {
-	FVector CameraLocation = FollowCamera->GetComponentLocation();
-	FRotator CameraRotation = GetController()->GetControlRotation();
+
 	FVector CameraViewNearEnd = CameraLocation + CameraRotation.Vector() * 500.0f;
 	FVector CameraViewFarEnd = CameraLocation + CameraRotation.Vector() * 20000000.0f;
 
@@ -79,6 +79,8 @@ ALaylaCharacter::ALaylaCharacter()
 
 	// Initialize EquipmentManager
 	EquipmentManager = CreateDefaultSubobject<ULaylaEquipmentManager>(TEXT("EquipmentManager"));
+	
+	
 }
 
 void ALaylaCharacter::BeginPlay()
@@ -91,6 +93,12 @@ void ALaylaCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
+	// Update Came Info
+	CameraLocation = FollowCamera->GetComponentLocation();;
+	// CameraRotation = GetController()->GetControlRotation(); Error when multi player???
+	CameraRotation = FollowCamera->GetComponentRotation();
+
+	// Try Trace Interactable Objects
 	FHitResult HitResult;
 	if (LineTraceAlongCamera(HitResult))
 	{
@@ -140,8 +148,17 @@ void ALaylaCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Triggered, this, &ALaylaCharacter::Interact);
 
 		EnhancedInputComponent->BindAction(AimAction, ETriggerEvent::Triggered, this, &ALaylaCharacter::Aim);
-		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Triggered, this, &ALaylaCharacter::Fire);
+		
+		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Started, this, &ALaylaCharacter::StartFire);
+		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Completed, this, &ALaylaCharacter::StopFire);
+
 		EnhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Triggered, this, &ALaylaCharacter::Reload);
+
+
+		// Equip
+		EnhancedInputComponent->BindAction(EquipPrimaryAction, ETriggerEvent::Triggered, this, &ALaylaCharacter::EquipPrimaryWeapon);
+		EnhancedInputComponent->BindAction(EquipSecondaryAction, ETriggerEvent::Triggered, this, &ALaylaCharacter::EquipSecondaryWeapon);
+		EnhancedInputComponent->BindAction(EquipMeleeAction, ETriggerEvent::Triggered, this, &ALaylaCharacter::EquipMeleeWeapon);
 	}
 	else
 	{
@@ -185,14 +202,29 @@ void ALaylaCharacter::Look(const FInputActionValue& Value)
 	}
 }
 
-void ALaylaCharacter::Fire(const FInputActionValue& Value)
-{
-	EquipmentManager->CurrentWeaponFire();
-}
-
 void ALaylaCharacter::Reload(const FInputActionValue& Value)
 {
-	EquipmentManager->CurrentWeaponReload();
+	EquipmentManager->GetCurrentWeapon()->Reload();
+}
+
+void ALaylaCharacter::EquipPrimaryWeapon(const FInputActionValue& Value)
+{
+	EquipWeapon(FString("PrimaryWeapon"));
+}
+
+void ALaylaCharacter::EquipSecondaryWeapon(const FInputActionValue& Value)
+{
+	EquipWeapon(FString("SecondaryWeapon"));
+}
+
+void ALaylaCharacter::EquipMeleeWeapon(const FInputActionValue& Value)
+{
+	EquipWeapon(FString("MeleeWeapon"));
+}
+
+void ALaylaCharacter::EquipWeapon(const FString& WeaponType)
+{
+	EquipmentManager->ChangeCurrentWeapon(WeaponType);
 }
 
 void ALaylaCharacter::UpdateCrouchState(const FInputActionValue& Value)
@@ -240,4 +272,77 @@ void ALaylaCharacter::Aim(const FInputActionValue& Value)
 		FollowCamera->SetFieldOfView(90.0f);
 	}
 	isAiming = !isAiming;
+}
+
+void ALaylaCharacter::StartFire(const FInputActionValue& Value)
+{
+	EquipmentManager->GetCurrentWeapon()->StartFire(CameraLocation, CameraRotation);
+}
+
+void ALaylaCharacter::StopFire(const FInputActionValue& Value)
+{
+	EquipmentManager->GetCurrentWeapon()->StopFire();
+}
+
+
+
+
+// Network Replication related funcs
+void ALaylaCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	//复制当前生命值。
+	DOREPLIFETIME(ALaylaCharacter, CurrentHealth);
+}
+
+void ALaylaCharacter::SetCurrentHealth(float healthValue)
+{
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		CurrentHealth = FMath::Clamp(healthValue, 0.f, MaxHealth);
+		OnHealthUpdate();
+	}
+}
+
+float ALaylaCharacter::TakeDamage(float DamageTaken, FDamageEvent const& DamageEvent, AController* EventInstigator,
+	AActor* DamageCauser)
+{
+	// return Super::TakeDamage(DamageTaken, DamageEvent, EventInstigator, DamageCauser);
+	float damageApplied = CurrentHealth - DamageTaken;
+	SetCurrentHealth(damageApplied);
+	return damageApplied;
+}
+
+
+void ALaylaCharacter::OnRep_CurrentHealth()
+{
+	OnHealthUpdate();
+}
+
+void ALaylaCharacter::OnHealthUpdate()
+{
+	//客户端特定的功能
+	if (IsLocallyControlled())
+	{
+		FString healthMessage = FString::Printf(TEXT("You now have %f health remaining."), CurrentHealth);
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, healthMessage);
+ 
+		if (CurrentHealth <= 0)
+		{
+			FString deathMessage = FString::Printf(TEXT("You have been killed."));
+			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, deathMessage);
+		}
+	}
+ 
+	//服务器特定的功能
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		FString healthMessage = FString::Printf(TEXT("%s now has %f health remaining."), *GetFName().ToString(), CurrentHealth);
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, healthMessage);
+	}
+ 
+	//在所有机器上都执行的函数。
+	/*
+		因任何因伤害或死亡而产生的特殊功能都应放在这里。
+	*/
 }
