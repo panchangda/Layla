@@ -50,14 +50,16 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Layla|Equipment")
 	// TArray<ULaylaEquipment* > EquipmentList;
 	TMap<FString, ULaylaEquipment*> EquipmentMap;
-
+	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Layla|Equipment")
 	TSubclassOf<ULaylaWeapon> DefaultWeaponClass;
 
-	UFUNCTION(BlueprintCallable)
-	void ChangeCurrentWeapon(FString EquipmentTag);
+	void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(Server, Reliable, BlueprintCallable)
+	void ChangeCurrentWeapon(const FString& EquipmentTag);
+	
+	UFUNCTION(Server, Reliable, BlueprintCallable)
 	void EquipmentItem(TSubclassOf<ULaylaEquipment> ItemClass);
 	
 	UFUNCTION(BlueprintCallable)

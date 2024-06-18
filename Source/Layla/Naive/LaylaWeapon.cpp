@@ -14,30 +14,7 @@ ULaylaWeapon::ULaylaWeapon(const FObjectInitializer& ObjectInitializer) : Super(
 
 }
 
-void ULaylaWeapon::OnEquipped()
-{
-	Super::OnEquipped();
-	SpawnEquipmentActors(DefaultActorsToSpawn);
-	
-	ACharacter* Character = Cast<ACharacter>(GetTypedPawn(ACharacter::StaticClass()));
-	if(Character)
-	{
-		Character->GetMesh()->LinkAnimClassLayers(PickBestAnimLayer(true, FGameplayTagContainer()));
-	}
-}
 
-void ULaylaWeapon::OnUnequipped()
-{
-	Super::OnUnequipped();
-
-	DestroyEquipmentActors();
-	ACharacter* Character = Cast<ACharacter>(GetTypedPawn(ACharacter::StaticClass()));
-	if(Character)
-	{
-		Character->GetMesh()->LinkAnimClassLayers(PickBestAnimLayer(false, FGameplayTagContainer()));
-	}
-	
-}
 
 void ULaylaWeapon::StartFire(const FVector& Location, const FRotator& Rotation)
 {
@@ -179,9 +156,53 @@ void ULaylaWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	DOREPLIFETIME(ThisClass, CurrAmmoInMagazine);
 }
 
+void ULaylaWeapon::OnEquipped()
+{
+	Super::OnEquipped();
+
+	ACharacter* Character = Cast<ACharacter>(GetTypedPawn(ACharacter::StaticClass()));
+	if(Character)
+	{
+		Character->GetMesh()->LinkAnimClassLayers(PickBestAnimLayer(false, FGameplayTagContainer()));
+	}
+}
+
+void ULaylaWeapon::OnUnequipped()
+{
+	Super::OnUnequipped();
+	
+	ACharacter* Character = Cast<ACharacter>(GetTypedPawn(ACharacter::StaticClass()));
+	if(Character)
+	{
+		Character->GetMesh()->LinkAnimClassLayers(PickBestAnimLayer(false, FGameplayTagContainer()));
+	}
+}
+
+// void ULaylaWeapon::OnEquipped_Implementation()
+// {
+// 	Super::OnEquipped_Implementation();
+//
+// 	ACharacter* Character = Cast<ACharacter>(GetTypedPawn(ACharacter::StaticClass()));
+// 	if(Character)
+// 	{
+// 		Character->GetMesh()->LinkAnimClassLayers(PickBestAnimLayer(false, FGameplayTagContainer()));
+// 	}
+// }
+
+// void ULaylaWeapon::OnUnequipped_Implementation()
+// {
+// 	Super::OnUnequipped_Implementation();
+//
+// 	ACharacter* Character = Cast<ACharacter>(GetTypedPawn(ACharacter::StaticClass()));
+// 	if(Character)
+// 	{
+// 		Character->GetMesh()->LinkAnimClassLayers(PickBestAnimLayer(false, FGameplayTagContainer()));
+// 	}
+// }
+//
 
 TSubclassOf<UAnimInstance> ULaylaWeapon::PickBestAnimLayer(bool bEquipped,
-														   const FGameplayTagContainer& CosmeticTags) const
+                                                           const FGameplayTagContainer& CosmeticTags) const
 {
 	const FLaylaAnimLayerSelectionSet& SetToQuery = (bEquipped ? EquippedAnimSet : UneuippedAnimSet);
 	return SetToQuery.DefaultLayer;

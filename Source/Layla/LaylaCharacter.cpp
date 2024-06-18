@@ -80,7 +80,9 @@ ALaylaCharacter::ALaylaCharacter()
 	// Initialize EquipmentManager
 	EquipmentManager = CreateDefaultSubobject<ULaylaEquipmentManager>(TEXT("EquipmentManager"));
 	
-	
+
+
+	bReplicateUsingRegisteredSubObjectList = true;
 }
 
 void ALaylaCharacter::BeginPlay()
@@ -227,6 +229,13 @@ void ALaylaCharacter::EquipWeapon(const FString& WeaponType)
 	EquipmentManager->ChangeCurrentWeapon(WeaponType);
 }
 
+// bool ALaylaCharacter::EquipWeapon_Validate(const FString& WeaponType)
+// {
+// 	return WeaponType.Equals("PrimaryWeapon")
+// 	|| WeaponType.Equals("SecondaryWeapon")
+// 	|| WeaponType.Equals("MeleeWeapon");
+// }
+
 void ALaylaCharacter::UpdateCrouchState(const FInputActionValue& Value)
 {
 	bIsCrouched = !bIsCrouched;
@@ -295,22 +304,29 @@ void ALaylaCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME(ALaylaCharacter, CurrentHealth);
 }
 
+// Server-Side Set
 void ALaylaCharacter::SetCurrentHealth(float healthValue)
 {
-	if (GetLocalRole() == ROLE_Authority)
-	{
-		CurrentHealth = FMath::Clamp(healthValue, 0.f, MaxHealth);
-		OnHealthUpdate();
-	}
+	check(GetLocalRole() == ROLE_Authority)
+	
+	CurrentHealth = FMath::Clamp(healthValue, 0.f, MaxHealth);
+	OnHealthUpdate();
+
 }
 
-float ALaylaCharacter::TakeDamage(float DamageTaken, FDamageEvent const& DamageEvent, AController* EventInstigator,
+float ALaylaCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator,
 	AActor* DamageCauser)
 {
-	// return Super::TakeDamage(DamageTaken, DamageEvent, EventInstigator, DamageCauser);
-	float damageApplied = CurrentHealth - DamageTaken;
-	SetCurrentHealth(damageApplied);
-	return damageApplied;
+
+	// Only Server should take damage: See APawn::ShouldTakeDamage
+	const float ActualDamage = Super::TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
+
+	if(ActualDamage!= 0.f)
+	{
+		SetCurrentHealth(CurrentHealth - ActualDamage);
+	}
+	
+	return ActualDamage;
 }
 
 
@@ -331,6 +347,7 @@ void ALaylaCharacter::OnHealthUpdate()
 		{
 			FString deathMessage = FString::Printf(TEXT("You have been killed."));
 			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, deathMessage);
+			
 		}
 	}
  

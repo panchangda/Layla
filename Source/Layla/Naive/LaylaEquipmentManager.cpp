@@ -4,6 +4,7 @@
 #include "LaylaEquipmentManager.h"
 #include "LaylaEquipment.h"
 #include "LaylaWeapon.h"
+#include "Net/UnrealNetwork.h"
 
 
 // Sets default values for this component's properties
@@ -18,11 +19,20 @@ ULaylaEquipmentManager::ULaylaEquipmentManager()
 
 	// Default Weapon Class
 	DefaultWeaponClass = ULaylaWeapon::StaticClass();
+	
 }
 
 
-void ULaylaEquipmentManager::ChangeCurrentWeapon(FString EquipmentTag)
+void ULaylaEquipmentManager::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+}
+
+void ULaylaEquipmentManager::ChangeCurrentWeapon_Implementation(const FString& EquipmentTag)
+{
+	// Only Execute on Server
+	if(! GetOwner()->HasAuthority()) return;
+	
 	if(ULaylaEquipment** ItemPtr = EquipmentMap.Find(EquipmentTag))
 	{
 		ULaylaWeapon* WeaponToEquip = Cast<ULaylaWeapon>(*ItemPtr);
@@ -41,8 +51,11 @@ void ULaylaEquipmentManager::ChangeCurrentWeapon(FString EquipmentTag)
 	}
 }
 
-void ULaylaEquipmentManager::EquipmentItem(TSubclassOf<ULaylaEquipment> ItemClass)
+void ULaylaEquipmentManager::EquipmentItem_Implementation(TSubclassOf<ULaylaEquipment> ItemClass)
 {
+	// Only Execute on Server
+	if(! GetOwner()->HasAuthority()) return;
+	
 	ULaylaEquipment* ItemInstance = NewObject<ULaylaEquipment>(this->GetOwner(), ItemClass);
 	FString ItemClassTag = ItemInstance->EquipmentTypeString;
 	// Existing Same Tag Item
@@ -130,8 +143,7 @@ ULaylaWeapon* ULaylaEquipmentManager::GetCurrentWeapon()
 void ULaylaEquipmentManager::BeginPlay()
 {
 	Super::BeginPlay();
-
-
+	
 	CurrentWeapon = NewObject<ULaylaWeapon>(this->GetOwner(), DefaultWeaponClass);
 	EquipmentMap.Add(CurrentWeapon->EquipmentTypeString, CurrentWeapon);
 	CurrentWeapon->OnEquipped();
@@ -147,4 +159,6 @@ void ULaylaEquipmentManager::TickComponent(float DeltaTime, ELevelTick TickType,
 
 	// ...
 }
+
+
 

@@ -156,7 +156,7 @@ protected:
 	void EquipPrimaryWeapon(const FInputActionValue& Value);
 	void EquipSecondaryWeapon(const FInputActionValue& Value);
 	void EquipMeleeWeapon(const FInputActionValue& Value);
-
+	
 	void EquipWeapon(const FString& WeaponType);
 	
 protected:

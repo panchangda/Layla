@@ -10,7 +10,19 @@
 ULaylaEquipment::ULaylaEquipment(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+	if(GetPawn())
+	{
+		GetPawn()->AddReplicatedSubObject(this);
+	}	
 	
+}
+
+ULaylaEquipment::~ULaylaEquipment()
+{
+	if(GetPawn())
+	{
+		GetPawn()->AddReplicatedSubObject(this);
+	}	
 }
 
 APawn* ULaylaEquipment::GetPawn() const
@@ -31,15 +43,19 @@ APawn* ULaylaEquipment::GetTypedPawn(TSubclassOf<APawn> PawnType) const
 	return Result;
 }
 
-void ULaylaEquipment::OnEquipped()
+void ULaylaEquipment::OnEquipped_Implementation()
 {
-	
+	check(GetPawn()->GetLocalRole() == ROLE_Authority)
+	SpawnEquipmentActors(DefaultActorsToSpawn);
 }
 
-void ULaylaEquipment::OnUnequipped()
+
+void ULaylaEquipment::OnUnequipped_Implementation()
 {
-	
+	check(GetPawn()->GetLocalRole() == ROLE_Authority)
+	DestroyEquipmentActors();
 }
+
 
 // For Network Rep
 void ULaylaEquipment::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -51,6 +67,8 @@ void ULaylaEquipment::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 }
 void ULaylaEquipment::SpawnEquipmentActors(const TArray<FLaylaEquipmentActorToSpawn>& ActorsToSpawn)
 {
+	if(GetPawn()->GetLocalRole()!=ROLE_Authority) return ;
+	
 	if(ActorsToSpawn.Num() == 0) {return ;}
 	
 	if (APawn* OwningPawn = GetPawn())
@@ -67,7 +85,6 @@ void ULaylaEquipment::SpawnEquipmentActors(const TArray<FLaylaEquipmentActorToSp
 			NewActor->FinishSpawning(FTransform::Identity, /*bIsDefaultTransform=*/ true);
 			NewActor->SetActorRelativeTransform(SpawnInfo.AttachTransform);
 			NewActor->AttachToComponent(AttachTarget, FAttachmentTransformRules::KeepRelativeTransform, SpawnInfo.AttachSocket);
-
 			SpawnedActors.Add(NewActor);
 		}
 	}

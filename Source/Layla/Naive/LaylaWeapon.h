@@ -31,9 +31,11 @@ public:
 	ULaylaWeapon(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const;
-	
+
+
 	virtual void OnEquipped() override;
-	
+
+
 	virtual void OnUnequipped() override;
 
 	UFUNCTION(BlueprintCallable)

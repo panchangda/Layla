@@ -34,7 +34,7 @@ class LAYLA_API ULaylaEquipment : public UObject
 
 public:
 	ULaylaEquipment(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
-	
+	virtual ~ULaylaEquipment() override;
 	UFUNCTION(BlueprintPure, Category=Equipment)
 	TArray<AActor*> GetSpawnedActors() const { return SpawnedActors; }
 
@@ -42,9 +42,13 @@ public:
 
 	UFUNCTION(BlueprintPure, Category=Equipment, meta=(DeterminesOutputType=PawnType))
 	APawn* GetTypedPawn(TSubclassOf<APawn> PawnType) const;
-	
+
+	UFUNCTION(Server, Reliable)
 	virtual void OnEquipped();
+
+	UFUNCTION(Server, Reliable)
 	virtual void OnUnequipped();
+
 	
 	virtual void SpawnEquipmentActors(const TArray<FLaylaEquipmentActorToSpawn>& ActorsToSpawn);
 	virtual void DestroyEquipmentActors();
