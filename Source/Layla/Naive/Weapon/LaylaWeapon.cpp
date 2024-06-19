@@ -9,241 +9,272 @@
 #include "Net/UnrealNetwork.h"
 
 
-ULaylaWeapon::ULaylaWeapon(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
+ULaylaWeapon::ULaylaWeapon(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer){}
+
+
+float ULaylaWeapon::PlayCharacterMontage(UAnimMontage* MontageToPlay) const
 {
-
-}
-
-
-
-void ULaylaWeapon::StartFire(FVector* Location, FRotator* Rotation)
-{
-	// 连点也不能超过开火速率
-	if(bIsFiring || GetWorld()->GetTimeSeconds() - LastFireTime <= FireRate) return;
-	
-	CameraLocation = Location;
-	CameraRotation = Rotation;
-	
-	// Register Montage Loop
-	PlayFireMontage();
-	GetWorld()->GetTimerManager().SetTimer(PlayMontageTimer, this, &ULaylaWeapon::PlayFireMontage, FireRate, true);
-	
-	// Generate Projectile is RPC on Server
-	if(GetPawn() && GetPawn()->IsLocallyControlled())
-	{
-		
-		// Register Montage Loop
-		// Generate One Bullet Immediately
-		ServerGenerateProjectile();
-		GetWorld()->GetTimerManager().SetTimer(GenerateProjectileTimer, this, &ULaylaWeapon::ServerGenerateProjectile, FireRate, true);
-	}
-
-	bIsFiring = true;
-}
-
-void ULaylaWeapon::StopFire()
-{
-	bIsFiring = false;
-	GetWorld()->GetTimerManager().ClearTimer(PlayMontageTimer);
-	GetWorld()->GetTimerManager().ClearTimer(GenerateProjectileTimer);
-
-	
-}
-
-void ULaylaWeapon::PlayFireMontage()
-{
-	if(CurrAmmoInMagazine<=0) return ;
-	
 	ACharacter* Character = Cast<ACharacter>(GetTypedPawn(ACharacter::StaticClass()));
 	if(Character)
 	{
 		USkeletalMeshComponent* Mesh = Character->GetMesh();
 		UAnimInstance * AnimInstance = (Mesh)? Mesh->GetAnimInstance() : nullptr; 
-		if(AnimInstance && CharacterFireMontage)
+		if(AnimInstance && MontageToPlay)
 		{
-			Character->PlayAnimMontage(CharacterFireMontage);
+			return Character->PlayAnimMontage(MontageToPlay);
 		}
 	}
-	
-	for (auto SpawnedWeaponAvator : GetSpawnedActors())
-	{
-		USkeletalMeshComponent* SM = Cast<USkeletalMeshComponent>(SpawnedWeaponAvator->GetRootComponent());
-		if( SM && WeaponFireMontage)
-		{
-			SM->GetAnimInstance()->Montage_Play(WeaponFireMontage);
-		}
-	}
+	return 0.f;
 }
 
-void ULaylaWeapon::Reload()
+float ULaylaWeapon::PlayWeaponMontage(UAnimMontage* MontageToPlay) const
 {
-	if(bIsReloading) return;
-
-
-	bIsReloading = true;
-	if(GetPawn() && GetPawn()->GetOwner()->HasAuthority())
+	for (auto SpawnedWeaponAvator : HandHeldActors)
 	{
-		// Delay time must match Montage Length
-		float WeaponReloadTime = 1.0f;
-		GetWorld()->GetTimerManager().SetTimer(WeaponReloadTimer, this, &ULaylaWeapon::ServerWeaponReload, WeaponReloadTime, false);
-		GetWorld()->GetTimerManager().SetTimer(WeaponReloadResetTimer, this, &ULaylaWeapon::ResetReloadState, WeaponReloadTime, false);
+		USkeletalMeshComponent* SM = Cast<USkeletalMeshComponent>(SpawnedWeaponAvator->GetRootComponent());
+		if( SM && MontageToPlay)
+		{
+			return SM->GetAnimInstance()->Montage_Play(MontageToPlay);
+		}
 	}
-	
+	return 0.f;
+}
+
+void ULaylaWeapon::StopCharacterMontage(UAnimMontage* MontageToStop) const
+{
 	ACharacter* Character = Cast<ACharacter>(GetTypedPawn(ACharacter::StaticClass()));
 	if(Character)
 	{
 		USkeletalMeshComponent* Mesh = Character->GetMesh();
 		UAnimInstance * AnimInstance = (Mesh)? Mesh->GetAnimInstance() : nullptr; 
-		if(AnimInstance && CharacterReloadMontage)
+		if(AnimInstance && MontageToStop)
 		{
-			Character->PlayAnimMontage(CharacterReloadMontage);
-		}
-	}
-	
-	for (auto SpawnedWeaponAvator : GetSpawnedActors())
-	{
-		USkeletalMeshComponent* SM = Cast<USkeletalMeshComponent>(SpawnedWeaponAvator->GetRootComponent());
-		if( SM && WeaponReloadMontage)
-		{
-			SM->GetAnimInstance()->Montage_Play(WeaponReloadMontage);
+			Character->StopAnimMontage(MontageToStop);
 		}
 	}
 }
 
-void ULaylaWeapon::OnRep_Holding(bool bHolding)
+void ULaylaWeapon::StopWeaponMontage(UAnimMontage* MontageToStop) const
 {
+	for (auto SpawnedWeaponAvator : HandHeldActors)
+	{
+		USkeletalMeshComponent* SM = Cast<USkeletalMeshComponent>(SpawnedWeaponAvator->GetRootComponent());
+		if( SM && MontageToStop)
+		{
+			return SM->GetAnimInstance()->Montage_Stop(MontageToStop->BlendOut.GetBlendTime(), MontageToStop);
+		}
+	}
+}
+
+
+
+
+void ULaylaWeapon::OnRep_HandHeld(bool bPrevHandHeld)
+{
+	if(bPrevHandHeld == bHandHeld) return ;
+	
 	// Toggle HandHeld & Wearable Visibility
 	for(auto HandHeld: HandHeldActors)
 	{
-		HandHeld->SetHidden(!bHolding);
+		HandHeld->SetHidden(!bHandHeld);
 	}
 	for(auto Wearable : SpawnedActors)
 	{
-		Wearable->SetHidden(bHolding);
+		Wearable->SetHidden(bHandHeld);
 	}
 	
-	LinkOwnerPawnToAnimSet(bHolding);
+	LinkOwnerPawnToAnimSet();
+
+	float PendingTime = PlayCharacterMontage(
+		bHandHeld ? CharacterDrawingMontage : CharacterStowingMontage);
+
+	bPendingDrawingOrStowing = true;
+
+	GetWorld()->GetTimerManager().SetTimer(TimerHandle_Pending, this,  &ULaylaWeapon::SetPendingToFalse, PendingTime, false);
+
+	GetWorld()->GetTimerManager().SetTimer(TimerHandle_HandHeldAudio, this,  &ULaylaWeapon::PlayHandHeldAudio, PendingTime, false);
 }
 
-void ULaylaWeapon::LinkOwnerPawnToAnimSet(bool bHolding) const
+
+
+void ULaylaWeapon::LinkOwnerPawnToAnimSet() const
 {
-	check(GetTypedPawn(ACharacter::StaticClass()))
+	check(GetTypedPawn(ACharacter::StaticClass()) != nullptr)
+	
 	if(ACharacter* Character = Cast<ACharacter>(GetPawn()))
 	{
 		if(Character->GetMesh())
 		{
-			Character->GetMesh()->LinkAnimClassLayers(bHolding ? ArmedAnimSet : UnarmedAnimSet);		
+			Character->GetMesh()->LinkAnimClassLayers(bHandHeld ? HandheldAnimSet : NonHandHeldAnimSet);		
 		}
 	}
 }
 
-void ULaylaWeapon::ServerFire_Implementation()
+void ULaylaWeapon::SetLastAttackTime()
 {
-	
-}
-
-bool ULaylaWeapon::ServerFire_Validate()
-{
-	return true;
-}
-
-void ULaylaWeapon::OnRep_BIsReloading()
-{
-	
-}
-
-void ULaylaWeapon::OnRep_BIsFiring()
-{
-	
-}
-
-void ULaylaWeapon::ResetReloadState()
-{
-	bIsReloading = false;
-}
-
-void ULaylaWeapon::ServerStopFire_Implementation()
-{
-	bIsFiring = false;
-}
-
-bool ULaylaWeapon::ServerStopFire_Validate()
-{
-	return true;
+	LastAttackTime = GetWorld()->GetTimeSeconds();
 }
 
 
-void ULaylaWeapon::ServerWeaponReload_Implementation()
+void ULaylaWeapon::SetPendingToFalse()
 {
-	int ReloadAmount = FMath::Min(MagazineSize, CurrAmmoInBackpack);
-	CurrAmmoInMagazine += ReloadAmount;  
-	CurrAmmoInBackpack -= ReloadAmount;
-	
+	bPendingDrawingOrStowing = false;
 }
 
-bool ULaylaWeapon::ServerWeaponReload_Validate()
+void ULaylaWeapon::PlayHandHeldAudio()
 {
-	return CurrAmmoInBackpack>0 && MagazineSize>0;
+	// Play Some Audio to indicate drawing is over
 }
 
-void ULaylaWeapon::ServerGenerateProjectile_Implementation()
-{
-	FVector SpawnLocation = *CameraLocation + ((*CameraRotation).Vector() * 200.0f);
-	// FRotator spawnRotation = ShootDirection.Rotation();
-	
-	FActorSpawnParameters spawnParameters;
-	spawnParameters.Instigator = GetPawn();
-	spawnParameters.Owner = GetPawn()->GetOwner();
-	ALaylaProjectile* Projectile = GetWorld()->SpawnActor<ALaylaProjectile>(ProjectileClass, SpawnLocation, *CameraRotation, spawnParameters);
-	if(Projectile)
-	{
-		Projectile->FireInDirection( (*CameraRotation).Vector());
-	}
-	CurrAmmoInMagazine -= 1;
-}
-
-bool ULaylaWeapon::ServerGenerateProjectile_Validate()
-{
-	return CurrAmmoInMagazine>0 && bIsRangedWeapon;
-}
+// void ULaylaWeapon::ServerStopFire_Implementation()
+// {
+// 	bIsFiring = false;
+// }
+//
+// bool ULaylaWeapon::ServerStopFire_Validate()
+// {
+// 	return true;
+// }
+//
+//
+// void ULaylaWeapon::ServerWeaponReload_Implementation()
+// {
+// 	int ReloadAmount = FMath::Min(MagazineSize, CurrAmmoInBackpack);
+// 	CurrAmmoInMagazine += ReloadAmount;  
+// 	CurrAmmoInBackpack -= ReloadAmount;
+// 	
+// }
+//
+// bool ULaylaWeapon::ServerWeaponReload_Validate()
+// {
+// 	return CurrAmmoInBackpack>0 && MagazineSize>0;
+// }
+//
+// void ULaylaWeapon::ServerGenerateProjectile_Implementation()
+// {
+// 	FVector SpawnLocation = *CameraLocation + ((*CameraRotation).Vector() * 200.0f);
+// 	// FRotator spawnRotation = ShootDirection.Rotation();
+// 	
+// 	FActorSpawnParameters spawnParameters;
+// 	spawnParameters.Instigator = GetPawn();
+// 	spawnParameters.Owner = GetPawn()->GetOwner();
+// 	ALaylaProjectile* Projectile = GetWorld()->SpawnActor<ALaylaProjectile>(ProjectileClass, SpawnLocation, *CameraRotation, spawnParameters);
+// 	if(Projectile)
+// 	{
+// 		Projectile->FireInDirection( (*CameraRotation).Vector());
+// 	}
+// 	CurrAmmoInMagazine -= 1;
+// }
+//
+// bool ULaylaWeapon::ServerGenerateProjectile_Validate()
+// {
+// 	return CurrAmmoInMagazine>0 && bIsRangedWeapon;
+// }
 
 
 void ULaylaWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME(ThisClass, CurrAmmoInBackpack)
-	DOREPLIFETIME(ThisClass, CurrAmmoInMagazine);
+	
 	DOREPLIFETIME(ThisClass, HandHeldActors);
+	DOREPLIFETIME(ThisClass, bAttacking);
+	DOREPLIFETIME(ThisClass, bHandHeld);
 }
 
 void ULaylaWeapon::OnEquipped()
 {
 	Super::OnEquipped();
 
-	SpawnEquipmentActors(TArray<FLaylaEquipmentActorToSpawn>({}));
-	ACharacter* Character = Cast<ACharacter>(GetTypedPawn(ACharacter::StaticClass()));
-	if(Character)
+	// Spawn HandHeld Actors
+	SpawnEquipmentActors(DefaultHandHeldActorsToSpawn, HandHeldActors);
+	for(auto HandHeldActor : HandHeldActors)
 	{
-		Character->GetMesh()->LinkAnimClassLayers(PickBestAnimLayer(true, FGameplayTagContainer()));
+		HandHeldActor->SetHidden(true);
 	}
 }
 
 void ULaylaWeapon::OnUnequipped()
 {
 	Super::OnUnequipped();
-	
-	ACharacter* Character = Cast<ACharacter>(GetTypedPawn(ACharacter::StaticClass()));
-	if(Character)
+
+	// Destroy Spawned Extra HandHeld Actors
+	DestroyEquipmentActors(HandHeldActors);
+}
+
+void ULaylaWeapon::StartAttack()
+{
+	if(GetPawn()->GetLocalRole() < ROLE_Authority)
 	{
-		Character->GetMesh()->LinkAnimClassLayers(PickBestAnimLayer(false, FGameplayTagContainer()));
+		ServerStartAttack();
+	}
+
+	if(!bAttacking && GetWorld()->GetTimeSeconds() - LastAttackTime > CoolingTime)
+	{
+		bAttacking = true;
+		OnRep_Attacking(false);
 	}
 }
 
-TSubclassOf<UAnimInstance> ULaylaWeapon::PickBestAnimLayer(bool bEquipped,
-                                                           const FGameplayTagContainer& CosmeticTags) const
+void ULaylaWeapon::OnRep_Attacking(bool bPrevAttacking)
 {
-	const FLaylaAnimLayerSelectionSet& SetToQuery = (bEquipped ? EquippedAnimSet : UneuippedAnimSet);
-	return SetToQuery.DefaultLayer;
+	if(bPrevAttacking == false && bAttacking == true) // Start Firing
+	{
+		float ChMontageTime = PlayCharacterMontage(CharacterAttackMontage);
+		float WPMontageTime = PlayWeaponMontage(WeaponAttackMontage);
+		GetWorld()->GetTimerManager().SetTimer(TimerHandle_CharacterAttackMontage,
+			[this](){PlayCharacterMontage(CharacterAttackMontage);}, ChMontageTime, true);
+
+		GetWorld()->GetTimerManager().SetTimer(TimerHandle_WeaponAttackMontage,
+			[this](){PlayWeaponMontage(WeaponAttackMontage);}, WPMontageTime, true);
+
+		GetWorld()->GetTimerManager().SetTimer(TimerHandle_SetLastAttackTime,
+			this, &ULaylaWeapon::SetLastAttackTime,CoolingTime, true);
+	}
+	else if(bPrevAttacking == true && bAttacking == false) // Cease  Firing
+	{
+		StopCharacterMontage(CharacterAttackMontage);
+		StopWeaponMontage(WeaponAttackMontage);
+		GetWorld()->GetTimerManager().ClearTimer(TimerHandle_CharacterAttackMontage);
+		GetWorld()->GetTimerManager().ClearTimer(TimerHandle_WeaponAttackMontage);
+		GetWorld()->GetTimerManager().ClearTimer(TimerHandle_SetLastAttackTime);
+	}
 }
+
+
+void ULaylaWeapon::StopAttack()
+{
+	if(GetPawn()->GetLocalRole() < ROLE_Authority)
+	{
+		ServerStartAttack();
+	}
+
+	if(bAttacking)
+	{
+		bAttacking = false;
+		OnRep_Attacking(true);
+	}
+	
+}
+
+bool ULaylaWeapon::ServerStopAttack_Validate()
+{
+	return true;
+}
+
+bool ULaylaWeapon::ServerStartAttack_Validate()
+{
+	return true;
+}
+
+void ULaylaWeapon::ServerStopAttack_Implementation()
+{
+	StopAttack();
+}
+
+void ULaylaWeapon::ServerStartAttack_Implementation()
+{
+	StartAttack();
+}
+
+
 

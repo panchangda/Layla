@@ -3,8 +3,8 @@
 
 #include "LaylaEquipmentManager.h"
 #include "LaylaEquipment.h"
-#include "LaylaWeapon.h"
 #include "Net/UnrealNetwork.h"
+#include "Weapon/LaylaWeapon.h"
 
 
 // Sets default values for this component's properties
@@ -44,10 +44,12 @@ void ULaylaEquipmentManager::ChangeCurrentWeapon_Implementation(const FString& E
 		{
 			if(CurrentWeapon)
 			{
-				CurrentWeapon->OnUnequipped();
+				CurrentWeapon->bHandHeld = false;
+				CurrentWeapon->OnRep_HandHeld(true);
 			}
 			CurrentWeapon = WeaponToEquip;
-			CurrentWeapon->OnEquipped();
+			CurrentWeapon->bHandHeld = true;
+			CurrentWeapon->OnRep_HandHeld(false);
 		}
 	}else
 	{
@@ -64,8 +66,8 @@ void ULaylaEquipmentManager::EquipmentItem_Implementation(TSubclassOf<ULaylaEqui
 	FString ItemClassTag = ItemInstance->EquipmentTypeString;
 
 	// Must Manually Add Sub UObject to ReplicateList  
-		AddReplicatedSubObject(ItemInstance);
-    	// GetOwner()->AddActorComponentReplicatedSubObject(this, ItemInstance, COND_None);
+	AddReplicatedSubObject(ItemInstance);
+    // GetOwner()->AddActorComponentReplicatedSubObject(this, ItemInstance, COND_None);
 	
 	
 	// Existing Same Tag Item
@@ -107,19 +109,32 @@ void ULaylaEquipmentManager::EquipmentItem_Implementation(TSubclassOf<ULaylaEqui
 			
 			if(ItemClassTag == "PrimaryWeapon")  // Primary Weapon: Always be CurrentWeapon
 			{
-				if(CurrentWeapon){CurrentWeapon->OnUnequipped();}
+				if(CurrentWeapon){CurrentWeapon->bHandHeld = false;}
 				CurrentWeapon = Cast<ULaylaWeapon>(ItemInstance);
-				CurrentWeapon->OnEquipped();	
+				CurrentWeapon->OnEquipped();
+
+				CurrentWeapon->bHandHeld = true;
+				// Client will automatically call OnRep when Property Replicated
+				// Server manually call OnRep
+				CurrentWeapon->OnRep_HandHeld(false);
+				
 			}else if(ItemClassTag == "SecondaryWeapon" &&  // Secondary Weapon: Only Be CurrentWeapon when No Currrent Weapon or Current Weapon is Melee
 				( !CurrentWeapon  ||  CurrentWeapon->EquipmentTypeString == "MeleeWeapon"))
 			{
-				if(CurrentWeapon){CurrentWeapon->OnUnequipped();}
+				if(CurrentWeapon){CurrentWeapon->bHandHeld = false;CurrentWeapon->OnRep_HandHeld(true);}
 				CurrentWeapon = Cast<ULaylaWeapon>(ItemInstance);
-				CurrentWeapon->OnEquipped();	
+				CurrentWeapon->OnEquipped();
+
+				CurrentWeapon->bHandHeld = true;
+				CurrentWeapon->OnRep_HandHeld(false);
+				
 			}else if(ItemClassTag == "MeleeWeapon" &&  !CurrentWeapon) // Melee Weapon: Only be CurrentWeapon when No Current Weapon
 			{
 				CurrentWeapon = Cast<ULaylaWeapon>(ItemInstance);
-				CurrentWeapon->OnEquipped();	
+				CurrentWeapon->OnEquipped();
+				
+				CurrentWeapon->bHandHeld = true;
+				CurrentWeapon->OnRep_HandHeld(false);
 			}
 		}else
 		{
@@ -150,14 +165,15 @@ ULaylaWeapon* ULaylaEquipmentManager::GetCurrentWeapon()
 
 void ULaylaEquipmentManager::OnRep_CurrentWeapon(ULaylaWeapon* PrevWeapon)
 {
-	if(PrevWeapon)
-	{
-		PrevWeapon->OnUnequipped();
-	}
-	if(CurrentWeapon)
-	{
-		CurrentWeapon->OnEquipped();
-	}
+	// if(PrevWeapon)
+	// {
+	// 	PrevWeapon->bHandHeld = false;
+	// 	CurrentWeapon->bHandHeld = true;
+	// }
+	// if(CurrentWeapon)
+	// {
+	// 	CurrentWeapon->bHandHeld = true;
+	// }
 }
 
 // Called when the game starts

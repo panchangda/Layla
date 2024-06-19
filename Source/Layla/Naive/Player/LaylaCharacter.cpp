@@ -11,9 +11,9 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "VectorTypes.h"
-#include "Naive/LaylaEquipmentManager.h"
-#include "Naive/LaylaPickup.h"
-#include "Naive/LaylaWeapon.h"
+#include "../LaylaEquipmentManager.h"
+#include "../LaylaPickup.h"
+#include "../Weapon/LaylaWeapon.h"
 #include "Net/UnrealNetwork.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
@@ -206,7 +206,7 @@ void ALaylaCharacter::Look(const FInputActionValue& Value)
 
 void ALaylaCharacter::Reload(const FInputActionValue& Value)
 {
-	EquipmentManager->GetCurrentWeapon()->Reload();
+	// EquipmentManager->GetCurrentWeapon()->Reload();
 }
 
 void ALaylaCharacter::EquipPrimaryWeapon(const FInputActionValue& Value)
@@ -285,12 +285,14 @@ void ALaylaCharacter::Aim(const FInputActionValue& Value)
 
 void ALaylaCharacter::StartFire(const FInputActionValue& Value)
 {
-	EquipmentManager->GetCurrentWeapon()->StartFire(&CameraLocation, &CameraRotation);
+	EquipmentManager->GetCurrentWeapon()->StartAttack();
+	// EquipmentManager->GetCurrentWeapon()->StartFire(&CameraLocation, &CameraRotation);
 }
 
 void ALaylaCharacter::StopFire(const FInputActionValue& Value)
 {
-	EquipmentManager->GetCurrentWeapon()->StopFire();
+	EquipmentManager->GetCurrentWeapon()->StopAttack();
+	// EquipmentManager->GetCurrentWeapon()->StopFire();
 }
 
 

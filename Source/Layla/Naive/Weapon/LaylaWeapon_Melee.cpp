@@ -2,3 +2,9 @@
 
 
 #include "LaylaWeapon_Melee.h"
+
+ULaylaWeapon_Melee::ULaylaWeapon_Melee(const FObjectInitializer& ObjectInitializer): Super(ObjectInitializer)
+{
+	
+}
+

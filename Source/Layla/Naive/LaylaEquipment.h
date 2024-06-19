@@ -3,7 +3,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameplayTagContainer.h"
 #include "UObject/Object.h"
 #include "LaylaEquipment.generated.h"
 
@@ -54,17 +53,15 @@ public:
 
 	UFUNCTION()
 	virtual void OnUnequipped();
-
 	
-	virtual void SpawnEquipmentActors(const TArray<FLaylaEquipmentActorToSpawn>& ActorsToSpawn);
-	virtual void DestroyEquipmentActors();
+	virtual void SpawnEquipmentActors(const TArray<FLaylaEquipmentActorToSpawn>& ActorsToSpawn, TArray<TObjectPtr<AActor>>& SpawnedActorsArray);
+	virtual void DestroyEquipmentActors(TArray<TObjectPtr<AActor>>& SpawnedActorsArray);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FLaylaEquipmentActorToSpawn> DefaultActorsToSpawn;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FString EquipmentTypeString;
-
 		
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Replicated)
 	TArray<TObjectPtr<AActor>> SpawnedActors;

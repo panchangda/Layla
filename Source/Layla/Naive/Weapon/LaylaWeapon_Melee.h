@@ -14,6 +14,8 @@ class LAYLA_API ULaylaWeapon_Melee : public ULaylaWeapon
 {
 	GENERATED_BODY()
 
+
+	ULaylaWeapon_Melee(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 public:
 	
 };

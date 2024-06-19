@@ -64,13 +64,12 @@ APawn* ULaylaEquipment::GetTypedPawn(TSubclassOf<APawn> PawnType) const
 
 void ULaylaEquipment::OnEquipped()
 {
-
-	SpawnEquipmentActors(DefaultActorsToSpawn);
+	SpawnEquipmentActors(DefaultActorsToSpawn, SpawnedActors);
 }
 
 void ULaylaEquipment::OnUnequipped()
 {
-	DestroyEquipmentActors();
+	DestroyEquipmentActors(SpawnedActors);
 }
 
 
@@ -83,7 +82,7 @@ void ULaylaEquipment::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME(ThisClass, SpawnedActors);
 	
 }
-void ULaylaEquipment::SpawnEquipmentActors(const TArray<FLaylaEquipmentActorToSpawn>& ActorsToSpawn)
+void ULaylaEquipment::SpawnEquipmentActors(const TArray<FLaylaEquipmentActorToSpawn>& ActorsToSpawn, TArray<TObjectPtr<AActor>>& SpawnedActorsArray)
 {
 	if(GetPawn()->GetLocalRole()!=ROLE_Authority) return ;
 	
@@ -103,14 +102,14 @@ void ULaylaEquipment::SpawnEquipmentActors(const TArray<FLaylaEquipmentActorToSp
 			NewActor->FinishSpawning(FTransform::Identity, /*bIsDefaultTransform=*/ true);
 			NewActor->SetActorRelativeTransform(SpawnInfo.AttachTransform);
 			NewActor->AttachToComponent(AttachTarget, FAttachmentTransformRules::KeepRelativeTransform, SpawnInfo.AttachSocket);
-			SpawnedActors.Add(NewActor);
+			SpawnedActorsArray.Add(NewActor);
 		}
 	}
 }
 
-void ULaylaEquipment::DestroyEquipmentActors()
+void ULaylaEquipment::DestroyEquipmentActors(TArray<TObjectPtr<AActor>>& SpawnedActorsArray)
 {
-	for (AActor* Actor : SpawnedActors)
+	for (AActor* Actor : SpawnedActorsArray)
 	{
 		if (Actor)
 		{
@@ -120,5 +119,6 @@ void ULaylaEquipment::DestroyEquipmentActors()
 			}
 		}
 	}
-	SpawnedActors.Empty();
+	SpawnedActorsArray.Empty();
 }
+
