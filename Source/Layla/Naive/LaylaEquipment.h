@@ -8,6 +8,8 @@
 #include "LaylaEquipment.generated.h"
 
 
+class ULaylaEquipmentManager;
+
 USTRUCT(BlueprintType, Blueprintable)
 struct FLaylaEquipmentActorToSpawn
 {
@@ -38,15 +40,19 @@ public:
 	UFUNCTION(BlueprintPure, Category=Equipment)
 	TArray<AActor*> GetSpawnedActors() const { return SpawnedActors; }
 
+	virtual bool IsSupportedForNetworking() const override;
+
+	ULaylaEquipmentManager* GetManager() const;
+	
 	APawn* GetPawn() const;
 
 	UFUNCTION(BlueprintPure, Category=Equipment, meta=(DeterminesOutputType=PawnType))
 	APawn* GetTypedPawn(TSubclassOf<APawn> PawnType) const;
 
-	UFUNCTION(Server, Reliable)
+	UFUNCTION()
 	virtual void OnEquipped();
 
-	UFUNCTION(Server, Reliable)
+	UFUNCTION()
 	virtual void OnUnequipped();
 
 	
@@ -60,7 +66,6 @@ public:
 	FString EquipmentTypeString;
 
 		
-	UPROPERTY(Replicated)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Replicated)
 	TArray<TObjectPtr<AActor>> SpawnedActors;
-	
 };

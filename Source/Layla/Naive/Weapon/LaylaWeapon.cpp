@@ -16,7 +16,7 @@ ULaylaWeapon::ULaylaWeapon(const FObjectInitializer& ObjectInitializer) : Super(
 
 
 
-void ULaylaWeapon::StartFire(const FVector& Location, const FRotator& Rotation)
+void ULaylaWeapon::StartFire(FVector* Location, FRotator* Rotation)
 {
 	// 连点也不能超过开火速率
 	if(bIsFiring || GetWorld()->GetTimeSeconds() - LastFireTime <= FireRate) return;
@@ -46,11 +46,12 @@ void ULaylaWeapon::StopFire()
 	bIsFiring = false;
 	GetWorld()->GetTimerManager().ClearTimer(PlayMontageTimer);
 	GetWorld()->GetTimerManager().ClearTimer(GenerateProjectileTimer);
+
+	
 }
 
 void ULaylaWeapon::PlayFireMontage()
 {
-	LastFireTime = GetWorld()->GetTimeSeconds();
 	if(CurrAmmoInMagazine<=0) return ;
 	
 	ACharacter* Character = Cast<ACharacter>(GetTypedPawn(ACharacter::StaticClass()));
@@ -109,16 +110,75 @@ void ULaylaWeapon::Reload()
 	}
 }
 
+void ULaylaWeapon::OnRep_Holding(bool bHolding)
+{
+	// Toggle HandHeld & Wearable Visibility
+	for(auto HandHeld: HandHeldActors)
+	{
+		HandHeld->SetHidden(!bHolding);
+	}
+	for(auto Wearable : SpawnedActors)
+	{
+		Wearable->SetHidden(bHolding);
+	}
+	
+	LinkOwnerPawnToAnimSet(bHolding);
+}
+
+void ULaylaWeapon::LinkOwnerPawnToAnimSet(bool bHolding) const
+{
+	check(GetTypedPawn(ACharacter::StaticClass()))
+	if(ACharacter* Character = Cast<ACharacter>(GetPawn()))
+	{
+		if(Character->GetMesh())
+		{
+			Character->GetMesh()->LinkAnimClassLayers(bHolding ? ArmedAnimSet : UnarmedAnimSet);		
+		}
+	}
+}
+
+void ULaylaWeapon::ServerFire_Implementation()
+{
+	
+}
+
+bool ULaylaWeapon::ServerFire_Validate()
+{
+	return true;
+}
+
+void ULaylaWeapon::OnRep_BIsReloading()
+{
+	
+}
+
+void ULaylaWeapon::OnRep_BIsFiring()
+{
+	
+}
+
 void ULaylaWeapon::ResetReloadState()
 {
 	bIsReloading = false;
 }
+
+void ULaylaWeapon::ServerStopFire_Implementation()
+{
+	bIsFiring = false;
+}
+
+bool ULaylaWeapon::ServerStopFire_Validate()
+{
+	return true;
+}
+
 
 void ULaylaWeapon::ServerWeaponReload_Implementation()
 {
 	int ReloadAmount = FMath::Min(MagazineSize, CurrAmmoInBackpack);
 	CurrAmmoInMagazine += ReloadAmount;  
 	CurrAmmoInBackpack -= ReloadAmount;
+	
 }
 
 bool ULaylaWeapon::ServerWeaponReload_Validate()
@@ -128,16 +188,16 @@ bool ULaylaWeapon::ServerWeaponReload_Validate()
 
 void ULaylaWeapon::ServerGenerateProjectile_Implementation()
 {
-	FVector SpawnLocation = CameraLocation + (CameraRotation.Vector() * 200.0f);
+	FVector SpawnLocation = *CameraLocation + ((*CameraRotation).Vector() * 200.0f);
 	// FRotator spawnRotation = ShootDirection.Rotation();
 	
 	FActorSpawnParameters spawnParameters;
 	spawnParameters.Instigator = GetPawn();
 	spawnParameters.Owner = GetPawn()->GetOwner();
-	ALaylaProjectile* Projectile = GetWorld()->SpawnActor<ALaylaProjectile>(ProjectileClass, SpawnLocation, CameraRotation, spawnParameters);
+	ALaylaProjectile* Projectile = GetWorld()->SpawnActor<ALaylaProjectile>(ProjectileClass, SpawnLocation, *CameraRotation, spawnParameters);
 	if(Projectile)
 	{
-		Projectile->FireInDirection(CameraRotation.Vector());
+		Projectile->FireInDirection( (*CameraRotation).Vector());
 	}
 	CurrAmmoInMagazine -= 1;
 }
@@ -154,16 +214,18 @@ void ULaylaWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 
 	DOREPLIFETIME(ThisClass, CurrAmmoInBackpack)
 	DOREPLIFETIME(ThisClass, CurrAmmoInMagazine);
+	DOREPLIFETIME(ThisClass, HandHeldActors);
 }
 
 void ULaylaWeapon::OnEquipped()
 {
 	Super::OnEquipped();
 
+	SpawnEquipmentActors(TArray<FLaylaEquipmentActorToSpawn>({}));
 	ACharacter* Character = Cast<ACharacter>(GetTypedPawn(ACharacter::StaticClass()));
 	if(Character)
 	{
-		Character->GetMesh()->LinkAnimClassLayers(PickBestAnimLayer(false, FGameplayTagContainer()));
+		Character->GetMesh()->LinkAnimClassLayers(PickBestAnimLayer(true, FGameplayTagContainer()));
 	}
 }
 
@@ -177,29 +239,6 @@ void ULaylaWeapon::OnUnequipped()
 		Character->GetMesh()->LinkAnimClassLayers(PickBestAnimLayer(false, FGameplayTagContainer()));
 	}
 }
-
-// void ULaylaWeapon::OnEquipped_Implementation()
-// {
-// 	Super::OnEquipped_Implementation();
-//
-// 	ACharacter* Character = Cast<ACharacter>(GetTypedPawn(ACharacter::StaticClass()));
-// 	if(Character)
-// 	{
-// 		Character->GetMesh()->LinkAnimClassLayers(PickBestAnimLayer(false, FGameplayTagContainer()));
-// 	}
-// }
-
-// void ULaylaWeapon::OnUnequipped_Implementation()
-// {
-// 	Super::OnUnequipped_Implementation();
-//
-// 	ACharacter* Character = Cast<ACharacter>(GetTypedPawn(ACharacter::StaticClass()));
-// 	if(Character)
-// 	{
-// 		Character->GetMesh()->LinkAnimClassLayers(PickBestAnimLayer(false, FGameplayTagContainer()));
-// 	}
-// }
-//
 
 TSubclassOf<UAnimInstance> ULaylaWeapon::PickBestAnimLayer(bool bEquipped,
                                                            const FGameplayTagContainer& CosmeticTags) const

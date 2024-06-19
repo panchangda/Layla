@@ -20,12 +20,16 @@ ULaylaEquipmentManager::ULaylaEquipmentManager()
 	// Default Weapon Class
 	DefaultWeaponClass = ULaylaWeapon::StaticClass();
 	
+	SetIsReplicatedByDefault(true);
 }
 
 
 void ULaylaEquipmentManager::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ULaylaEquipmentManager, CurrentWeapon)
+	DOREPLIFETIME(ULaylaEquipmentManager, RepVar)
 }
 
 void ULaylaEquipmentManager::ChangeCurrentWeapon_Implementation(const FString& EquipmentTag)
@@ -56,8 +60,14 @@ void ULaylaEquipmentManager::EquipmentItem_Implementation(TSubclassOf<ULaylaEqui
 	// Only Execute on Server
 	if(! GetOwner()->HasAuthority()) return;
 	
-	ULaylaEquipment* ItemInstance = NewObject<ULaylaEquipment>(this->GetOwner(), ItemClass);
+	ULaylaEquipment* ItemInstance = NewObject<ULaylaEquipment>(this, ItemClass);
 	FString ItemClassTag = ItemInstance->EquipmentTypeString;
+
+	// Must Manually Add Sub UObject to ReplicateList  
+		AddReplicatedSubObject(ItemInstance);
+    	// GetOwner()->AddActorComponentReplicatedSubObject(this, ItemInstance, COND_None);
+	
+	
 	// Existing Same Tag Item
 	if(ULaylaEquipment** ExistingItemPtr = EquipmentMap.Find(ItemClassTag))
 	{
@@ -138,16 +148,28 @@ ULaylaWeapon* ULaylaEquipmentManager::GetCurrentWeapon()
 }
 
 
+void ULaylaEquipmentManager::OnRep_CurrentWeapon(ULaylaWeapon* PrevWeapon)
+{
+	if(PrevWeapon)
+	{
+		PrevWeapon->OnUnequipped();
+	}
+	if(CurrentWeapon)
+	{
+		CurrentWeapon->OnEquipped();
+	}
+}
 
 // Called when the game starts
 void ULaylaEquipmentManager::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	CurrentWeapon = NewObject<ULaylaWeapon>(this->GetOwner(), DefaultWeaponClass);
-	EquipmentMap.Add(CurrentWeapon->EquipmentTypeString, CurrentWeapon);
-	CurrentWeapon->OnEquipped();
+	EquipmentItem(DefaultWeaponClass);
 	
+	// CurrentWeapon = NewObject<ULaylaWeapon>(this->GetOwner(), DefaultWeaponClass);
+	// EquipmentMap.Add(CurrentWeapon->EquipmentTypeString, CurrentWeapon);
+	// CurrentWeapon->OnEquipped();
 }
 
 

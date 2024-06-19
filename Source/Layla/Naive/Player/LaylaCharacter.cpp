@@ -82,7 +82,7 @@ ALaylaCharacter::ALaylaCharacter()
 	
 
 
-	bReplicateUsingRegisteredSubObjectList = true;
+	// bReplicateUsingRegisteredSubObjectList = false;
 }
 
 void ALaylaCharacter::BeginPlay()
@@ -285,7 +285,7 @@ void ALaylaCharacter::Aim(const FInputActionValue& Value)
 
 void ALaylaCharacter::StartFire(const FInputActionValue& Value)
 {
-	EquipmentManager->GetCurrentWeapon()->StartFire(CameraLocation, CameraRotation);
+	EquipmentManager->GetCurrentWeapon()->StartFire(&CameraLocation, &CameraRotation);
 }
 
 void ALaylaCharacter::StopFire(const FInputActionValue& Value)

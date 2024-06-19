@@ -47,19 +47,19 @@ public:
 	// Sets default values for this component's properties
 	ULaylaEquipmentManager();
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Layla|Equipment")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	// TArray<ULaylaEquipment* > EquipmentList;
 	TMap<FString, ULaylaEquipment*> EquipmentMap;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Layla|Equipment")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TSubclassOf<ULaylaWeapon> DefaultWeaponClass;
 
-	void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	
-	UFUNCTION(Server, Reliable, BlueprintCallable)
+	UFUNCTION(Server, Reliable)
 	void ChangeCurrentWeapon(const FString& EquipmentTag);
 	
-	UFUNCTION(Server, Reliable, BlueprintCallable)
+	UFUNCTION(Server, Reliable)
 	void EquipmentItem(TSubclassOf<ULaylaEquipment> ItemClass);
 	
 	UFUNCTION(BlueprintCallable)
@@ -68,6 +68,14 @@ public:
 	UFUNCTION(BlueprintCallable)
 	ULaylaWeapon* GetCurrentWeapon();
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_CurrentWeapon)
+	ULaylaWeapon* CurrentWeapon;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated)
+	int RepVar;
+
+	UFUNCTION()
+	void OnRep_CurrentWeapon(ULaylaWeapon* PrevWeapon);
 	
 protected:
 	// Called when the game starts
@@ -81,5 +89,5 @@ public:
 private:
 	void AddWeapon();
 	
-	TObjectPtr<ULaylaWeapon> CurrentWeapon;
+
 };

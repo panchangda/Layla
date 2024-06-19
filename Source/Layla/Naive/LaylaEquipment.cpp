@@ -3,6 +3,7 @@
 
 #include "LaylaEquipment.h"
 
+#include "LaylaEquipmentManager.h"
 #include "GameFramework/Character.h"
 #include "Net/UnrealNetwork.h"
 
@@ -10,24 +11,42 @@
 ULaylaEquipment::ULaylaEquipment(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	if(GetPawn())
-	{
-		GetPawn()->AddReplicatedSubObject(this);
-	}	
+	// if(GetPawn())
+	// {
+	// 	GetPawn()->AddReplicatedSubObject(this);
+	// }	
+	//
 	
 }
 
 ULaylaEquipment::~ULaylaEquipment()
 {
-	if(GetPawn())
-	{
-		GetPawn()->AddReplicatedSubObject(this);
-	}	
+	// if(GetPawn())
+	// {
+	// 	GetPawn()->AddReplicatedSubObject(this);
+	// }	
 }
+
+bool ULaylaEquipment::IsSupportedForNetworking() const
+{
+	// return UObject::IsSupportedForNetworking();
+	return true;
+}
+
+ULaylaEquipmentManager* ULaylaEquipment::GetManager() const
+{
+	return Cast<ULaylaEquipmentManager>(GetOuter());
+}
+
 
 APawn* ULaylaEquipment::GetPawn() const
 {
-	return Cast<APawn>(GetOuter());
+	
+	if(GetManager())
+	{
+		return Cast<APawn>(GetManager()->GetOwner());
+	}
+	return nullptr;
 }
 
 APawn* ULaylaEquipment::GetTypedPawn(TSubclassOf<APawn> PawnType) const
@@ -35,26 +54,25 @@ APawn* ULaylaEquipment::GetTypedPawn(TSubclassOf<APawn> PawnType) const
 	APawn* Result = nullptr;
 	if (UClass* ActualPawnType = PawnType)
 	{
-		if (GetOuter()->IsA(ActualPawnType))
+		if (GetManager() && GetManager()->GetOwner()->IsA(ActualPawnType))
 		{
-			Result = Cast<APawn>(GetOuter());
+			Result = Cast<APawn>(GetManager()->GetOwner());
 		}
 	}
 	return Result;
 }
 
-void ULaylaEquipment::OnEquipped_Implementation()
+void ULaylaEquipment::OnEquipped()
 {
-	check(GetPawn()->GetLocalRole() == ROLE_Authority)
+
 	SpawnEquipmentActors(DefaultActorsToSpawn);
 }
 
-
-void ULaylaEquipment::OnUnequipped_Implementation()
+void ULaylaEquipment::OnUnequipped()
 {
-	check(GetPawn()->GetLocalRole() == ROLE_Authority)
 	DestroyEquipmentActors();
 }
+
 
 
 // For Network Rep
