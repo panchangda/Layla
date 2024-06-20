@@ -16,7 +16,6 @@ ULaylaEquipment::ULaylaEquipment(const FObjectInitializer& ObjectInitializer)
 	// 	GetPawn()->AddReplicatedSubObject(this);
 	// }	
 	//
-	
 }
 
 ULaylaEquipment::~ULaylaEquipment()
@@ -24,7 +23,8 @@ ULaylaEquipment::~ULaylaEquipment()
 	// if(GetPawn())
 	// {
 	// 	GetPawn()->AddReplicatedSubObject(this);
-	// }	
+	// }
+	DestroyEquipmentActors();
 }
 
 bool ULaylaEquipment::IsSupportedForNetworking() const
@@ -62,15 +62,61 @@ APawn* ULaylaEquipment::GetTypedPawn(TSubclassOf<APawn> PawnType) const
 	return Result;
 }
 
+void ULaylaEquipment::InitializeEquipment()
+{
+	SpawnEquipmentActors(DefaultActorsToSpawn);
+	AttachToBody();
+}
+
 void ULaylaEquipment::OnEquipped()
 {
-	SpawnEquipmentActors(DefaultActorsToSpawn, SpawnedActors);
+	AttachToHand();
 }
 
 void ULaylaEquipment::OnUnequipped()
 {
-	DestroyEquipmentActors(SpawnedActors);
+	AttachToBody();
 }
+
+void ULaylaEquipment::AttachToHand()
+{
+	if(APawn* OwningPawn = GetPawn())
+	{
+		USceneComponent* AttachTarget = OwningPawn->GetRootComponent();
+		if (ACharacter* Char = Cast<ACharacter>(OwningPawn))
+		{
+			AttachTarget = Char->GetMesh();
+		}
+
+		for(int i = 0; i < DefaultActorsToSpawn.Num() && i < SpawnedActors.Num();i++)
+		{
+			const FLaylaEquipmentActorToSpawn& SpawnInfo = DefaultActorsToSpawn[i];
+			SpawnedActors[i]->SetActorRelativeTransform(SpawnInfo.AttachTransform_Hand);
+			SpawnedActors[i]->AttachToComponent(AttachTarget, FAttachmentTransformRules::KeepRelativeTransform, SpawnInfo.AttachSocket_Hand);
+		}
+	}
+	
+}
+
+void ULaylaEquipment::AttachToBody()
+{
+		if(APawn* OwningPawn = GetPawn())
+		{
+			USceneComponent* AttachTarget = OwningPawn->GetRootComponent();
+			if (ACharacter* Char = Cast<ACharacter>(OwningPawn))
+			{
+				AttachTarget = Char->GetMesh();
+			}
+
+			for(int i = 0; i < DefaultActorsToSpawn.Num() && i < SpawnedActors.Num();i++)
+			{
+				const FLaylaEquipmentActorToSpawn& SpawnInfo = DefaultActorsToSpawn[i];
+				SpawnedActors[i]->SetActorRelativeTransform(SpawnInfo.AttachTransform_Body);
+				SpawnedActors[i]->AttachToComponent(AttachTarget, FAttachmentTransformRules::KeepRelativeTransform, SpawnInfo.AttachSocket_Body);
+			}
+		}
+}
+
 
 
 
@@ -80,10 +126,14 @@ void ULaylaEquipment::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	
 	DOREPLIFETIME(ThisClass, SpawnedActors);
+
+
 	
 }
-void ULaylaEquipment::SpawnEquipmentActors(const TArray<FLaylaEquipmentActorToSpawn>& ActorsToSpawn, TArray<TObjectPtr<AActor>>& SpawnedActorsArray)
+
+void ULaylaEquipment::SpawnEquipmentActors(const TArray<FLaylaEquipmentActorToSpawn>& ActorsToSpawn)
 {
+	if(!GetPawn()) return;
 	if(GetPawn()->GetLocalRole()!=ROLE_Authority) return ;
 	
 	if(ActorsToSpawn.Num() == 0) {return ;}
@@ -100,16 +150,14 @@ void ULaylaEquipment::SpawnEquipmentActors(const TArray<FLaylaEquipmentActorToSp
 		{
 			AActor* NewActor = GetWorld()->SpawnActorDeferred<AActor>(SpawnInfo.ActorToSpawn, FTransform::Identity, OwningPawn);
 			NewActor->FinishSpawning(FTransform::Identity, /*bIsDefaultTransform=*/ true);
-			NewActor->SetActorRelativeTransform(SpawnInfo.AttachTransform);
-			NewActor->AttachToComponent(AttachTarget, FAttachmentTransformRules::KeepRelativeTransform, SpawnInfo.AttachSocket);
-			SpawnedActorsArray.Add(NewActor);
+			SpawnedActors.Add(NewActor);
 		}
 	}
 }
 
-void ULaylaEquipment::DestroyEquipmentActors(TArray<TObjectPtr<AActor>>& SpawnedActorsArray)
+void ULaylaEquipment::DestroyEquipmentActors()
 {
-	for (AActor* Actor : SpawnedActorsArray)
+	for (AActor* Actor : SpawnedActors)
 	{
 		if (Actor)
 		{
@@ -119,6 +167,8 @@ void ULaylaEquipment::DestroyEquipmentActors(TArray<TObjectPtr<AActor>>& Spawned
 			}
 		}
 	}
-	SpawnedActorsArray.Empty();
+
+	SpawnedActors.Empty();
 }
+
 

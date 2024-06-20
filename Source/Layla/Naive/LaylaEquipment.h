@@ -20,10 +20,16 @@ struct FLaylaEquipmentActorToSpawn
 	TSubclassOf<AActor> ActorToSpawn;
 
 	UPROPERTY(EditAnywhere, Category=Equipment)
-	FName AttachSocket;
+	FName AttachSocket_Body;
 
 	UPROPERTY(EditAnywhere, Category=Equipment)
-	FTransform AttachTransform;
+	FName AttachSocket_Hand;
+
+	UPROPERTY(EditAnywhere, Category=Equipment)
+	FTransform AttachTransform_Body;
+	
+	UPROPERTY(EditAnywhere, Category=Equipment)
+	FTransform AttachTransform_Hand;
 };
 /**
  * 
@@ -48,14 +54,16 @@ public:
 	UFUNCTION(BlueprintPure, Category=Equipment, meta=(DeterminesOutputType=PawnType))
 	APawn* GetTypedPawn(TSubclassOf<APawn> PawnType) const;
 
-	UFUNCTION()
-	virtual void OnEquipped();
-
-	UFUNCTION()
-	virtual void OnUnequipped();
+	void InitializeEquipment();
 	
-	virtual void SpawnEquipmentActors(const TArray<FLaylaEquipmentActorToSpawn>& ActorsToSpawn, TArray<TObjectPtr<AActor>>& SpawnedActorsArray);
-	virtual void DestroyEquipmentActors(TArray<TObjectPtr<AActor>>& SpawnedActorsArray);
+	virtual void OnEquipped();
+	
+	virtual void OnUnequipped();
+
+	void AttachToHand();
+	void AttachToBody();
+	void SpawnEquipmentActors(const TArray<FLaylaEquipmentActorToSpawn>& ActorsToSpawn);
+	void DestroyEquipmentActors();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FLaylaEquipmentActorToSpawn> DefaultActorsToSpawn;

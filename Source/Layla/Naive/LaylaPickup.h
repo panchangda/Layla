@@ -50,7 +50,7 @@ public:
 
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Layla|Pickup")
-	TSubclassOf<ULaylaEquipment> EquipmentType;
+	TSubclassOf<ULaylaEquipment> EquipmentClass;
 	
 	void OnPickup();
 	

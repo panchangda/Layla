@@ -16,20 +16,14 @@ class LAYLA_API ULaylaWeapon : public ULaylaEquipment
 {
 	GENERATED_BODY()
 public:
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TArray<FLaylaEquipmentActorToSpawn>DefaultHandHeldActorsToSpawn;
 	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Replicated)
-	TArray<TObjectPtr<AActor>> HandHeldActors;
-	
-	bool bPendingDrawingOrStowing = false;
+	bool bPendingEquip = false;
 	
 	UPROPERTY(ReplicatedUsing=OnRep_Attacking)
 	bool bAttacking = false;
 
-	UPROPERTY(ReplicatedUsing=OnRep_HandHeld)
-	bool bHandHeld = false;
+	UPROPERTY(ReplicatedUsing=OnRep_Equip)
+	bool bEquip = false;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	float LastAttackTime = 0.0f;
@@ -38,10 +32,10 @@ public:
 	float CoolingTime = 0.8f;
 
 	UPROPERTY(EditAnywhere,BlueprintReadOnly)
-	TSubclassOf<UAnimInstance> HandheldAnimSet;
+	TSubclassOf<UAnimInstance> ArmedAnimSet;
 
 	UPROPERTY(EditAnywhere,BlueprintReadOnly)
-	TSubclassOf<UAnimInstance> NonHandHeldAnimSet;
+	TSubclassOf<UAnimInstance> UnArmedAnimSet;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Animation)
 	UAnimMontage* CharacterDrawingMontage;
@@ -58,8 +52,8 @@ public:
 
 	/** Functions */
 	ULaylaWeapon(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
-
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const;
+	
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	
 	virtual void OnEquipped() override;
 	
@@ -68,16 +62,18 @@ public:
 	virtual void StartAttack();
 	
 	virtual void StopAttack();
-
+	
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerStartAttack();
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerStopAttack();
-	
-	UFUNCTION()
-	void OnRep_HandHeld(bool bPrevHandHeld);
 
+	void DetermineWeaponState();
+
+	UFUNCTION()
+	void OnRep_Equip();
+	
 	UFUNCTION()
 	void OnRep_Attacking(bool bPrevAttacking);
 
@@ -89,19 +85,17 @@ public:
 	virtual void StopWeaponMontage(UAnimMontage* MontageToStop) const;
 	
 	UFUNCTION(BlueprintCallable)
-	void LinkOwnerPawnToAnimSet() const;
-
-
+	void LinkOwnerPawnToAnimSet(TSubclassOf<UAnimInstance> AnimSetToLink) const;
 	
 private:
 
 	void SetLastAttackTime();
 	void SetPendingToFalse();
-	void PlayHandHeldAudio();
+	void PlayEquipFinishAudio();
 
 	// 
 	FTimerHandle TimerHandle_Pending;
-	FTimerHandle TimerHandle_HandHeldAudio;
+	FTimerHandle TimerHandle_EquipFinishAudio;
 
 	// Attack
 	FTimerHandle TimerHandle_SetLastAttackTime;

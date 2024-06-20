@@ -162,6 +162,7 @@ protected:
 protected:
 	// APawn interface
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	virtual void PostInitializeComponents() override;
 	
 	// To add mapping context
 	virtual void BeginPlay();

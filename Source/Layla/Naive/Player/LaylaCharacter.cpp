@@ -168,6 +168,32 @@ void ALaylaCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 	}
 }
 
+void ALaylaCharacter::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		CurrentHealth = GetMaxHealth();
+
+		// // Needs to happen after character is added to repgraph
+		// GetWorldTimerManager().SetTimerForNextTick(this->EquipmentManager, &ULaylaEquipmentManager::SpawnDefaultEquipment);
+	}
+	
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		// if (RespawnFX)
+		// {
+		// 	UGameplayStatics::SpawnEmitterAtLocation(this, RespawnFX, GetActorLocation(), GetActorRotation());
+		// }
+		//
+		// if (RespawnSound)
+		// {
+		// 	UGameplayStatics::PlaySoundAtLocation(this, RespawnSound, GetActorLocation());
+		// }
+	}
+	
+}
+
 void ALaylaCharacter::Move(const FInputActionValue& Value)
 {
 	// input is a Vector2D
@@ -211,23 +237,19 @@ void ALaylaCharacter::Reload(const FInputActionValue& Value)
 
 void ALaylaCharacter::EquipPrimaryWeapon(const FInputActionValue& Value)
 {
-	EquipWeapon(FString("PrimaryWeapon"));
+	EquipmentManager->HandleInputToEquip(EEquipmentInput::EquipPrimary);
 }
 
 void ALaylaCharacter::EquipSecondaryWeapon(const FInputActionValue& Value)
 {
-	EquipWeapon(FString("SecondaryWeapon"));
+	EquipmentManager->HandleInputToEquip(EEquipmentInput::EquipSecondary);
 }
 
 void ALaylaCharacter::EquipMeleeWeapon(const FInputActionValue& Value)
 {
-	EquipWeapon(FString("MeleeWeapon"));
+	EquipmentManager->HandleInputToEquip(EEquipmentInput::EquipMelee);
 }
 
-void ALaylaCharacter::EquipWeapon(const FString& WeaponType)
-{
-	EquipmentManager->ChangeCurrentWeapon(WeaponType);
-}
 
 // bool ALaylaCharacter::EquipWeapon_Validate(const FString& WeaponType)
 // {
@@ -256,7 +278,7 @@ void ALaylaCharacter::Interact(const FInputActionValue& Value)
 			if(PickupActor && UE::Geometry::Distance(PickupActor->GetActorLocation(), GetActorLocation()) < 300.0f)
 			{
 
-				EquipmentManager->EquipmentItem(PickupActor->EquipmentType);
+				EquipmentManager->AddItem(PickupActor->EquipmentClass);
 				PickupActor->OnPickup();
 				
 			}
@@ -285,13 +307,13 @@ void ALaylaCharacter::Aim(const FInputActionValue& Value)
 
 void ALaylaCharacter::StartFire(const FInputActionValue& Value)
 {
-	EquipmentManager->GetCurrentWeapon()->StartAttack();
+	EquipmentManager->HandleInputToEquip(EEquipmentInput::StartAttack);
 	// EquipmentManager->GetCurrentWeapon()->StartFire(&CameraLocation, &CameraRotation);
 }
 
 void ALaylaCharacter::StopFire(const FInputActionValue& Value)
 {
-	EquipmentManager->GetCurrentWeapon()->StopAttack();
+	EquipmentManager->HandleInputToEquip(EEquipmentInput::StopAttack);
 	// EquipmentManager->GetCurrentWeapon()->StopFire();
 }
 
