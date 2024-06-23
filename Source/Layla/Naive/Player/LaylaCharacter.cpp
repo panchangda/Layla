@@ -14,6 +14,7 @@
 #include "../LaylaEquipmentManager.h"
 #include "../LaylaPickup.h"
 #include "../Weapon/LaylaWeapon.h"
+#include "Layla/LaylaGun.h"
 #include "Net/UnrealNetwork.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
@@ -78,7 +79,7 @@ ALaylaCharacter::ALaylaCharacter()
 
 
 	// Initialize EquipmentManager
-	EquipmentManager = CreateDefaultSubobject<ULaylaEquipmentManager>(TEXT("EquipmentManager"));
+	// EquipmentManager = CreateDefaultSubobject<ULaylaEquipmentManager>(TEXT("EquipmentManager"));
 	
 
 
@@ -114,8 +115,38 @@ void ALaylaCharacter::Tick(float DeltaSeconds)
 			{
 				PickupActor->bIsBeingInspected = true;
 			}
+		}else if(HitActor->IsA(ALaylaGun::StaticClass()))
+		{
+			// 显示UI
+			ALaylaGun* GunActor = Cast<ALaylaGun>(HitActor);
+			if(UE::Geometry::Distance(GunActor->GetActorLocation(), GetActorLocation()) < 300.0f)
+			{
+				GunActor->OnFocused();
+			}
+		}
+
+		// 如果和上次求交的actor不同
+		if(HitActor!=PrevHitActor)
+		{
+			if(ALaylaGun* PrevGunActor = Cast<ALaylaGun>(PrevHitActor))
+			{
+				PrevGunActor->OnFocuseLost();
+			}
+
+			PrevHitActor = HitActor;
 		}
 	}
+	else // 求交不成功
+	{
+		if(ALaylaGun* GunActor = Cast<ALaylaGun>(PrevHitActor))
+		{
+			GunActor->OnFocuseLost();
+		}
+
+		
+		PrevHitActor = nullptr;
+	}
+
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -161,6 +192,8 @@ void ALaylaCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 		EnhancedInputComponent->BindAction(EquipPrimaryAction, ETriggerEvent::Triggered, this, &ALaylaCharacter::EquipPrimaryWeapon);
 		EnhancedInputComponent->BindAction(EquipSecondaryAction, ETriggerEvent::Triggered, this, &ALaylaCharacter::EquipSecondaryWeapon);
 		EnhancedInputComponent->BindAction(EquipMeleeAction, ETriggerEvent::Triggered, this, &ALaylaCharacter::EquipMeleeWeapon);
+		EnhancedInputComponent->BindAction(DropGunAction, ETriggerEvent::Triggered, this, &ALaylaCharacter::DropGun);
+
 	}
 	else
 	{
@@ -192,6 +225,187 @@ void ALaylaCharacter::PostInitializeComponents()
 		// }
 	}
 	
+}
+
+
+void ALaylaCharacter::PickGun(ALaylaGun* Gun)
+{
+	if (Gun)
+	{
+		if (GetLocalRole() == ROLE_Authority)
+		{
+			AddGun(Gun);
+		}
+		else
+		{
+			ServerPickGun(Gun);
+		}
+	}
+}
+
+void ALaylaCharacter::DropGun(ALaylaGun* Gun)
+{
+	if (Gun)
+	{
+		if (GetLocalRole() == ROLE_Authority)
+		{
+			RemoveGun(Gun);
+		}
+		else
+		{
+			ServerDropGun(Gun);
+		}
+	}
+}
+
+ALaylaGun* ALaylaCharacter::FindGun(const FGameplayTag& GunToFind)
+{
+	for(const auto Gun:GunList)
+	{
+		if(Gun->GunTag == GunToFind)
+		{
+			return Gun;
+		}
+	}
+	return nullptr;
+}
+
+void ALaylaCharacter::SetCurrentGun(ALaylaGun* NewGun, ALaylaGun* LastGun)
+{
+	ALaylaGun* LocalLastWeapon = nullptr;
+
+	if (LastGun != NULL)
+	{
+		LocalLastWeapon = LastGun;
+	}
+	else if (NewGun != CurrentGun)
+	{
+		LocalLastWeapon = CurrentGun;
+	}
+
+	// unequip previous
+	if (LocalLastWeapon)
+	{
+		LocalLastWeapon->OnUnEquip();
+	}
+
+	CurrentGun = NewGun;
+
+	// equip new one
+	if (NewGun)
+	{
+		NewGun->SetOwnerPawn(this);	// Make sure weapon's MyPawn is pointing back to us. During replication, we can't guarantee APawn::CurrentWeapon will rep after AWeapon::MyPawn!
+
+		NewGun->OnEquip();
+	}
+	
+}
+void ALaylaCharacter::OnRep_CurrentGun(ALaylaGun* LastGun)
+{
+	SetCurrentGun(CurrentGun, LastGun);
+}
+
+
+void ALaylaCharacter::EquipGun_Implementation(ALaylaGun* Gun)
+{
+	if(Gun)
+	{
+		SetCurrentGun(Gun, CurrentGun);
+	}
+}
+
+bool ALaylaCharacter::EquipGun_Validate(ALaylaGun* Gun)
+{
+	return true;
+}
+
+
+void ALaylaCharacter::UnEquipGun_Implementation(ALaylaGun* Gun)
+{
+
+}
+
+bool ALaylaCharacter::UnEquipGun_Validate(ALaylaGun* Gun)
+{
+	return true;
+}
+
+
+void ALaylaCharacter::ServerDropGun_Implementation(ALaylaGun* Gun)
+{
+	DropGun(Gun);
+}
+
+bool ALaylaCharacter::ServerDropGun_Validate(ALaylaGun* Gun)
+{
+	return true;
+}
+
+void ALaylaCharacter::ServerPickGun_Implementation(ALaylaGun* Gun)
+{
+	PickGun(Gun);
+}
+
+bool ALaylaCharacter::ServerPickGun_Validate(ALaylaGun* Gun)
+{
+	return true;
+}
+
+
+void ALaylaCharacter::AddGun(ALaylaGun* Gun)
+{
+	ALaylaGun* SameTagGun = FindGun(Gun->GunTag);
+	GunList.AddUnique(Gun);
+	Gun->OnPick(this);
+	if(SameTagGun)
+	{
+		RemoveGun(SameTagGun);
+	}else
+	{
+		EquipGun(Gun);
+	}
+}
+
+void ALaylaCharacter::RemoveGun(ALaylaGun* Gun)
+{
+	if(Gun == CurrentGun)
+	{
+		SetCurrentGun(nullptr, Gun);
+	}
+	GunList.RemoveSingle(Gun);
+	Gun->OnDrop(this);
+}
+
+void ALaylaCharacter::StartGunFire()
+{
+	if (!bIsGunFiring)
+	{
+		bIsGunFiring = true;
+		if (CurrentGun)
+		{
+			CurrentGun->StartFire();
+		}
+	}
+}
+
+void ALaylaCharacter::StopGunFire()
+{
+	if(bIsGunFiring)
+	{
+		bIsGunFiring = false;
+		if(CurrentGun)
+		{
+			CurrentGun->StopFire();
+		}
+	}
+}
+
+void ALaylaCharacter::StartGunReload()
+{
+	if (CurrentGun)
+	{
+		CurrentGun->StartReload();
+	}
 }
 
 void ALaylaCharacter::Move(const FInputActionValue& Value)
@@ -237,17 +451,25 @@ void ALaylaCharacter::Reload(const FInputActionValue& Value)
 
 void ALaylaCharacter::EquipPrimaryWeapon(const FInputActionValue& Value)
 {
-	EquipmentManager->HandleInputToEquip(EEquipmentInput::EquipPrimary);
+	// EquipmentManager->HandleInputToEquip(EEquipmentInput::EquipPrimary);
+	EquipGun(FindGun(FGameplayTag::RequestGameplayTag(FName("Weapon.Gun.Primary"))));
 }
 
 void ALaylaCharacter::EquipSecondaryWeapon(const FInputActionValue& Value)
 {
-	EquipmentManager->HandleInputToEquip(EEquipmentInput::EquipSecondary);
+	// EquipmentManager->HandleInputToEquip(EEquipmentInput::EquipSecondary);
+	EquipGun(FindGun(FGameplayTag::RequestGameplayTag(FName("Weapon.Gun.Secondary"))));
 }
 
 void ALaylaCharacter::EquipMeleeWeapon(const FInputActionValue& Value)
 {
-	EquipmentManager->HandleInputToEquip(EEquipmentInput::EquipMelee);
+	// EquipmentManager->HandleInputToEquip(EEquipmentInput::EquipMelee);
+	EquipGun(FindGun(FGameplayTag::RequestGameplayTag(FName("Weapon.Melee"))));
+}
+
+void ALaylaCharacter::DropGun(const FInputActionValue& Value)
+{
+		DropGun(CurrentGun);
 }
 
 
@@ -271,17 +493,22 @@ void ALaylaCharacter::Interact(const FInputActionValue& Value)
 	{
 		AActor* HitActor = HitResult.GetActor();
 		// 检查是否是我们感兴趣的目标类型
-		if (HitActor->IsA(ALaylaPickup::StaticClass()))
+		// if (HitActor->IsA(ALaylaPickup::StaticClass()))
+		// {
+		// 	// 显示UI
+		// 	ALaylaPickup* PickupActor = Cast<ALaylaPickup>(HitActor);
+		// 	if(PickupActor && UE::Geometry::Distance(PickupActor->GetActorLocation(), GetActorLocation()) < 300.0f)
+		// 	{
+		//
+		// 		EquipmentManager->AddItem(PickupActor->EquipmentClass);
+		// 		PickupActor->OnPickup();
+		// 		
+		// 	}
+		// }
+		if(HitActor->IsA(ALaylaGun::StaticClass()))
 		{
-			// 显示UI
-			ALaylaPickup* PickupActor = Cast<ALaylaPickup>(HitActor);
-			if(PickupActor && UE::Geometry::Distance(PickupActor->GetActorLocation(), GetActorLocation()) < 300.0f)
-			{
-
-				EquipmentManager->AddItem(PickupActor->EquipmentClass);
-				PickupActor->OnPickup();
-				
-			}
+			ALaylaGun* GunActor = Cast<ALaylaGun>(HitActor);
+			PickGun(GunActor);
 		}
 	}
 	
@@ -307,13 +534,13 @@ void ALaylaCharacter::Aim(const FInputActionValue& Value)
 
 void ALaylaCharacter::StartFire(const FInputActionValue& Value)
 {
-	EquipmentManager->HandleInputToEquip(EEquipmentInput::StartAttack);
+	// EquipmentManager->HandleInputToEquip(EEquipmentInput::StartAttack);
 	// EquipmentManager->GetCurrentWeapon()->StartFire(&CameraLocation, &CameraRotation);
 }
 
 void ALaylaCharacter::StopFire(const FInputActionValue& Value)
 {
-	EquipmentManager->HandleInputToEquip(EEquipmentInput::StopAttack);
+	// EquipmentManager->HandleInputToEquip(EEquipmentInput::StopAttack);
 	// EquipmentManager->GetCurrentWeapon()->StopFire();
 }
 
@@ -326,6 +553,8 @@ void ALaylaCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	//复制当前生命值。
 	DOREPLIFETIME(ALaylaCharacter, CurrentHealth);
+	DOREPLIFETIME(ALaylaCharacter, GunList);
+	DOREPLIFETIME(ALaylaCharacter, CurrentGun);
 }
 
 // Server-Side Set
@@ -352,6 +581,7 @@ float ALaylaCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEvent,
 	
 	return ActualDamage;
 }
+
 
 
 void ALaylaCharacter::OnRep_CurrentHealth()

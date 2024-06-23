@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameplayTagContainer.h"
 #include "InputActionValue.h"
 #include "GameFramework/Character.h"
 #include "Logging/LogMacros.h"
@@ -25,6 +26,8 @@ class ALaylaCharacter : public ACharacter
 	GENERATED_BODY()
 
 public:
+	ALaylaCharacter();
+	
 	/** Camera boom positioning the camera behind the character */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	USpringArmComponent* CameraBoom;
@@ -76,13 +79,16 @@ public:
 	/** Interact Equip Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* EquipSecondaryAction;
-
+	
 	/** Interact Equip Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* EquipMeleeAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* DropGunAction;
 	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Layla|Components" , meta=(AllowPrivateAccess = "true"))
-	TObjectPtr<ULaylaEquipmentManager> EquipmentManager;
+	// UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Layla|Components" , meta=(AllowPrivateAccess = "true"))
+	// TObjectPtr<ULaylaEquipmentManager> EquipmentManager;
 	
 	UFUNCTION(BlueprintCallable)
 	bool LineTraceAlongCamera(FHitResult& HitResult);
@@ -122,8 +128,54 @@ public:
 	float TakeDamage( float DamageTaken, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser ) override;
 
 
-public:
-	ALaylaCharacter();
+
+
+
+
+	/* Guns */
+	UPROPERTY(Transient, Replicated, VisibleAnywhere, BlueprintReadOnly)
+	TArray<class ALaylaGun*> GunList;
+	/* Gun Interactions: Pick, Drop, Equip...... */
+	// [Client -> Server]
+	void PickGun(ALaylaGun* Gun);
+	// [Client -> Server]
+	void DropGun(ALaylaGun* Gun);
+	// [Server]
+	UFUNCTION(Server, Reliable, WithValidation)
+	void EquipGun(ALaylaGun* Gun);
+	// [Server]
+	UFUNCTION(Server, Reliable, WithValidation)
+	void UnEquipGun(ALaylaGun* Gun);
+
+	ALaylaGun* FindGun(const FGameplayTag& GunTag);
+	
+	// [Client + Server]
+	void SetCurrentGun(ALaylaGun* NewWeapon, ALaylaGun* LastWeapon);
+
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_CurrentGun)
+	ALaylaGun* CurrentGun;
+	UFUNCTION()
+	void OnRep_CurrentGun(ALaylaGun* LastWeapon);
+	
+	// [Server]
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerPickGun(ALaylaGun* Gun);
+	// [Server]
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerDropGun(ALaylaGun* Gun);
+
+	// [Server]
+	void AddGun(ALaylaGun* Gun);
+	// [Server]
+	void RemoveGun(ALaylaGun* Gun);
+
+
+	/* Gun Core: Start/Stop Fire, Reload */
+	void StartGunFire();
+	void StopGunFire();
+	bool bIsGunFiring = false;
+
+	void StartGunReload();
 	
 
 protected:
@@ -153,11 +205,11 @@ protected:
 	void Reload(const FInputActionValue& Value);
 	bool isReloading;
 
+
 	void EquipPrimaryWeapon(const FInputActionValue& Value);
 	void EquipSecondaryWeapon(const FInputActionValue& Value);
 	void EquipMeleeWeapon(const FInputActionValue& Value);
-	
-	void EquipWeapon(const FString& WeaponType);
+	void DropGun(const FInputActionValue& Value);
 	
 protected:
 	// APawn interface
@@ -169,6 +221,7 @@ protected:
 	
 	virtual void Tick(float DeltaSeconds) override;
 
+	AActor* PrevHitActor = nullptr; 
 public:
 	/** Returns CameraBoom subobject **/
 	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
