@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "AbilitySystemInterface.h"
 #include "GameplayTagContainer.h"
 #include "InputActionValue.h"
 #include "GameFramework/Character.h"
@@ -17,16 +18,23 @@ class UCameraComponent;
 class UInputMappingContext;
 class UInputAction;
 struct FInputActionValue;
+class ULaylaAbilitySystem;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
 
 UCLASS(config=Game)
-class ALaylaCharacter : public ACharacter
+class ALaylaCharacter : public ACharacter, public IAbilitySystemInterface
 {
 	GENERATED_BODY()
 
 public:
 	ALaylaCharacter();
+
+	/** Pointer to the ability system component that is cached for convenience. */
+	UPROPERTY(Transient)
+	TObjectPtr<ULaylaAbilitySystem> AbilitySystemComponent;
+	
+	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 	
 	/** Camera boom positioning the camera behind the character */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
@@ -55,6 +63,9 @@ public:
 	/** Crouch Input Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* CrouchAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* ADSAction;
 	
 	/** Fire Input Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
@@ -154,6 +165,7 @@ public:
 
 	UPROPERTY(Transient, ReplicatedUsing = OnRep_CurrentGun)
 	ALaylaGun* CurrentGun;
+	
 	UFUNCTION()
 	void OnRep_CurrentGun(ALaylaGun* LastWeapon);
 	
@@ -187,6 +199,10 @@ protected:
 	void Look(const FInputActionValue& Value);
 
 	// for animation update
+	void StartCrouch();
+	void EndCrouch();
+	virtual void OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
+	virtual void OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
 	void UpdateCrouchState(const FInputActionValue& Value);
 	bool isCrouching;
 	
@@ -210,7 +226,9 @@ protected:
 	void EquipSecondaryWeapon(const FInputActionValue& Value);
 	void EquipMeleeWeapon(const FInputActionValue& Value);
 	void DropGun(const FInputActionValue& Value);
-	
+
+	void StartADS(const FInputActionValue& Valu);
+	void StopADS(const FInputActionValue& Valu);
 protected:
 	// APawn interface
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;

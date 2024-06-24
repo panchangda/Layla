@@ -27,14 +27,21 @@ struct FGunConfig
 {
 	GENERATED_BODY()
 
-	UPROPERTY()
-	float MagazineSize;
+	UPROPERTY(EditDefaultsOnly)
+	int32 MagazineSize;
 
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly)
 	float FireRate;
 
-	UPROPERTY()
-	bool ReserveAmmo;
+	UPROPERTY(EditDefaultsOnly)
+	bool bReserveAmmo;
+
+	FGunConfig()
+	{
+		MagazineSize = 1;
+		FireRate = 1.0f;
+		bReserveAmmo = false;
+	}
 };
 
 
@@ -92,6 +99,8 @@ public:
 	 * Fire & Reload & Ammos
 	 * 
 	 */
+	UPROPERTY(EditDefaultsOnly)
+	FGunConfig GunConfig;
 	
 	/** current ammo - inside clip */
 	UPROPERTY(Transient, Replicated)
@@ -109,6 +118,11 @@ public:
 	void OnBurstStarted();
 	void OnBurstFinished();
 
+	/** is fire animation playing? */
+	bool bPlayingFireAnim = false;
+	bool bLoopedFireAnim = false;
+	bool bLoopedFireSound = false;
+	
 	/** Called in network play to do the cosmetic fx for firing */
 	virtual void SimulateWeaponFire();
 
@@ -127,7 +141,7 @@ public:
 
 	/** is reload animation playing? */
 	UPROPERTY(Transient, ReplicatedUsing=OnRep_Reload)
-	bool bPendingReload = true;
+	bool bPendingReload = false;
 	UFUNCTION()
 	void OnRep_Reload();
 
@@ -153,8 +167,14 @@ public:
 	UFUNCTION(reliable, server, WithValidation)
 	void ServerHandleFiring();
 
-	FGunConfig GunConfig;
-
+	/** Whether to allow automatic weapons to catch up with shorter refire cycles */
+	// UPROPERTY(Config)
+	bool bAllowAutomaticWeaponCatchup = true;
+	
+	bool bRefiring = true;
+	void HandleReFiring();
+	float TimerIntervalAdjustment = 0.f;
+	void UseAmmo();
 	
 	
 	void AttachToPawn(FName Socket, FTransform Transform);
@@ -202,6 +222,27 @@ public:
 	 */
 	
 	/** play weapon sounds */
+	
+	/** firing audio (bLoopedFireSound set) */
+	UPROPERTY(Transient)
+	UAudioComponent* FireAC;
+	
+	/** single fire sound (bLoopedFireSound not set) */
+	UPROPERTY(EditDefaultsOnly, Category=Sound)
+	USoundCue* FireSound;
+
+	/** looped fire sound (bLoopedFireSound set) */
+	UPROPERTY(EditDefaultsOnly, Category=Sound)
+	USoundCue* FireLoopSound;
+
+	/** equip sound */
+	UPROPERTY(EditDefaultsOnly, Category=Sound)
+	USoundCue* EquipSound;
+	
+	/** finished burst sound (bLoopedFireSound set) */
+	UPROPERTY(EditDefaultsOnly, Category=Sound)
+	USoundCue* FireFinishSound;
+	
 	/** out of ammo sound */
 	UPROPERTY(EditDefaultsOnly, Category=Sound)
 	USoundCue* OutOfAmmoSound;
@@ -211,7 +252,7 @@ public:
 	USoundCue* ReloadSound;
 	
 	UAudioComponent* PlayWeaponSound(USoundCue* Sound);
-	
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;

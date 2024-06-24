@@ -3,6 +3,7 @@
 
 #include "LaylaGun.h"
 
+#include "Components/AudioComponent.h"
 #include "Components/WidgetComponent.h"
 #include "GameFramework/Character.h"
 #include "Kismet/GameplayStatics.h"
@@ -25,6 +26,9 @@ ALaylaGun::ALaylaGun()
 	WidgetComponent->SetupAttachment(RootComponent);
 
 	WidgetComponent->SetVisibility(false);
+
+	this->SetReplicates(true);
+	SkeletalMeshComponent->SetIsReplicated(true);
 }
 
 void ALaylaGun::OnFocused()
@@ -154,6 +158,16 @@ void ALaylaGun::StartFire()
 
 void ALaylaGun::StopFire()
 {
+	if (GetLocalRole() < ROLE_Authority)
+	{
+		ServerStopFire();
+	}
+
+	if (bWantsToFire)
+	{
+		bWantsToFire = false;
+		DetermineWeaponState();
+	}
 	
 }
 
@@ -167,7 +181,9 @@ void ALaylaGun::StartReload(bool bFromReplication)
 	{
 		bPendingReload = true;
 		DetermineWeaponState();
-		float AnimDuration = PlayWeaponAnim(GunReloadAnim);		
+		float AnimDuration_Gun = PlayWeaponAnim(GunReloadAnim);
+		float AnimDuration_Character = PlayCharacterAnim(CharacterReloadAnim);
+		float AnimDuration = FMath::Max(AnimDuration_Gun, AnimDuration_Character);
 		if (AnimDuration <= 0.0f)
 		{
 			// failsafe
@@ -194,6 +210,7 @@ void ALaylaGun::StopReload()
 		bPendingReload = false;
 		DetermineWeaponState();
 		StopCharacterAnim(CharacterReloadAnim);
+		StopWeaponAnim(GunReloadAnim);
 	}
 }
 
@@ -204,6 +221,14 @@ void ALaylaGun::ReloadGun()
 
 void ALaylaGun::OnRep_BurstCounter()
 {
+	if (BurstCounter > 0)
+	{
+		SimulateWeaponFire();
+	}
+	else
+	{
+		StopSimulatingWeaponFire();
+	}
 }
 
 void ALaylaGun::DetermineWeaponState()
@@ -211,9 +236,19 @@ void ALaylaGun::DetermineWeaponState()
 	EWeaponState::Type NewState = EWeaponState::Idle;
 	if(bIsEquipped)
 	{
-		if( bPendingReload  )
+		if( bPendingReload)
 		{
-			
+			if( CanReload() == false )
+			{
+				NewState = CurrentState;
+			}
+			else
+			{
+				NewState = EWeaponState::Reloading;
+			}
+		}else if ( (bPendingReload == false ) && ( bWantsToFire == true ) && ( CanFire() == true ))
+		{
+			NewState = EWeaponState::Firing;
 		}
 		
 	}else if(bPendingEquip)
@@ -258,14 +293,63 @@ void ALaylaGun::OnBurstStarted()
 
 void ALaylaGun::OnBurstFinished()
 {
+	BurstCounter = 0;
+	
+	StopSimulatingWeaponFire();
+
+	GetWorldTimerManager().ClearTimer(TimerHandle_HandleFiring);
+	
 }
 
 void ALaylaGun::SimulateWeaponFire()
 {
+	if (GetLocalRole() == ROLE_Authority && CurrentState != EWeaponState::Firing)
+	{
+		return;
+	}
+
+	// Anim      
+	if (!bLoopedFireAnim || !bPlayingFireAnim)
+	{
+		PlayWeaponAnim(GunFireAnim);
+		PlayCharacterAnim(CharacterFireAnim);
+		bPlayingFireAnim = true;
+	}
+	
+	// Sound     
+	if (bLoopedFireSound)
+	{
+		if (FireAC == NULL)
+		{
+			FireAC = PlayWeaponSound(FireLoopSound);
+		}
+	}
+	else
+	{
+		PlayWeaponSound(FireSound);
+	}
+	
+	// Muzzle FX
+	
+	// Camera Shake
+
+
 }
 
 void ALaylaGun::StopSimulatingWeaponFire()
 {
+	if (bLoopedFireAnim && bPlayingFireAnim)
+	{
+		StopWeaponAnim(GunFireAnim);
+		bPlayingFireAnim = false;
+	}
+	if(FireAC)
+	{
+		FireAC->FadeOut(0.1f, 0.0f);
+		FireAC = nullptr;
+
+		PlayWeaponSound(FireFinishSound);
+	}
 }
 
 void ALaylaGun::Fire()
@@ -274,6 +358,13 @@ void ALaylaGun::Fire()
 
 void ALaylaGun::OnRep_Reload()
 {
+	if(bPendingReload)
+	{
+		StartReload(true);
+	}else
+	{
+		StopReload();
+	}
 	
 }
 
@@ -288,8 +379,9 @@ bool ALaylaGun::CanReload()
 {
 	bool bCanReload = OwnerPawn!= nullptr;
 	bool bGotAmmo = true; // Get Ammo Count From Character's Inventory List
+	bool bAmmoIsNotFull = AmmoInMagzine!=GunConfig.MagazineSize;
 	bool bStateOKToReload = ( ( CurrentState ==  EWeaponState::Idle ) || ( CurrentState == EWeaponState::Firing) );
-	return ( ( bCanReload == true ) && ( bGotAmmo == true ) && ( bStateOKToReload == true) );	
+	return bCanReload && bGotAmmo && bAmmoIsNotFull && bStateOKToReload;
 }
 
 void ALaylaGun::ServerStopFire_Implementation()
@@ -324,6 +416,7 @@ bool ALaylaGun::ServerStartReload_Validate()
 
 void ALaylaGun::ServerStopReload_Implementation()
 {
+	StopReload();
 }
 
 bool ALaylaGun::ServerStopReload_Validate()
@@ -340,7 +433,7 @@ void ALaylaGun::ServerHandleFiring_Implementation()
 	if (bShouldUpdateAmmo)
 	{
 		// update ammo
-		// UseAmmo();
+		UseAmmo();
 
 		// update firing FX on remote clients
 		BurstCounter++;
@@ -350,6 +443,26 @@ void ALaylaGun::ServerHandleFiring_Implementation()
 bool ALaylaGun::ServerHandleFiring_Validate()
 {
 	return true;
+}
+
+void ALaylaGun::HandleReFiring()
+{
+	// Update TimerIntervalAdjustment
+	UWorld* MyWorld = GetWorld();
+
+	float SlackTimeThisFrame = FMath::Max(0.0f, (MyWorld->TimeSeconds - LastFireTime) - GunConfig.FireRate);
+
+	if (bAllowAutomaticWeaponCatchup)
+	{
+		TimerIntervalAdjustment -= SlackTimeThisFrame;
+	}
+
+	HandleFiring();
+}
+
+void ALaylaGun::UseAmmo()
+{
+	AmmoInMagzine--;
 }
 
 void ALaylaGun::AttachToPawn(FName Socket, FTransform Transform)
@@ -380,6 +493,11 @@ void ALaylaGun::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetim
 
 	DOREPLIFETIME(ALaylaGun, OwnerPawn)
 	
+	DOREPLIFETIME_CONDITION( ALaylaGun, AmmoInMagzine,		COND_OwnerOnly );
+	// DOREPLIFETIME_CONDITION( ALaylaGun, CurrentAmmoInClip, COND_OwnerOnly );
+
+	DOREPLIFETIME_CONDITION( ALaylaGun, BurstCounter,		COND_SkipOwner );
+	DOREPLIFETIME_CONDITION( ALaylaGun, bPendingReload,		COND_SkipOwner );
 }
 
 float ALaylaGun::PlayCharacterAnim(UAnimMontage* AnimToPlay)
@@ -490,7 +608,7 @@ void ALaylaGun::HandleFiring()
 		{
 			Fire();
 
-			// UseAmmo();
+			UseAmmo();
 			
 			// update firing FX on remote clients if function was called on server
 			BurstCounter++;
@@ -498,8 +616,8 @@ void ALaylaGun::HandleFiring()
 	}else if(OwnerPawn && OwnerPawn->IsLocallyControlled())
 	{
 		if(AmmoInMagzine == 0)
-		{
-			// PlayWeaponSound(OutOfAmmoSound);
+		{ 
+			PlayWeaponSound(OutOfAmmoSound);
 		}
 
 		// stop weapon fire FX, but stay in Firing state
@@ -519,6 +637,15 @@ void ALaylaGun::HandleFiring()
 		if (GetLocalRole() < ROLE_Authority)
 		{
 			ServerHandleFiring();
+		}
+
+		// setup refire timer
+		bRefiring = (CurrentState == EWeaponState::Firing && GunConfig.FireRate > 0.0f);
+		if (bRefiring)
+		{
+			GetWorldTimerManager().SetTimer(TimerHandle_HandleFiring, this,
+				&ALaylaGun::HandleReFiring, FMath::Max<float>(GunConfig.FireRate + TimerIntervalAdjustment, SMALL_NUMBER), false);
+			TimerIntervalAdjustment = 0.f;
 		}
 	}
 	LastFireTime = GetWorld()->GetTimeSeconds();
