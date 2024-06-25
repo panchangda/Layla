@@ -514,23 +514,70 @@ void ALaylaCharacter::DropGun(const FInputActionValue& Value)
 		DropGun(CurrentGun);
 }
 
-void ALaylaCharacter::StartADS(const FInputActionValue& Valu)	
+void ALaylaCharacter::StartADS(const FInputActionValue& Value)	
 {
-	FGameplayTag ADSTag = FGameplayTag::RequestGameplayTag(FName("Event.Movement.ADS"));
+	// FGameplayTag ADSTag = FGameplayTag::RequestGameplayTag(FName("Event.Movement.ADS"));
+
+	ServerAddTag(FName("Event.Movement.ADS"));
 	
 	// AnimInstance's GameplayTagPropertyMap Only Register NewOrRemove Delegate, no need to toggle count
-	AbilitySystemComponent->AddLooseGameplayTag(ADSTag);
+	// AbilitySystemComponent->AddLooseGameplayTag(ADSTag);
 
 	// AddOrRemove Replicated is not working with AnimInstance's  GameplayTagPropertyMap
 	// AbilitySystemComponent->AddReplicatedLooseGameplayTag(ADSTag);
 	// AbilitySystemComponent->SetReplicatedLooseGameplayTagCount(ADSTag, 1);
 }
 
-void ALaylaCharacter::StopADS(const FInputActionValue& Valu)
+void ALaylaCharacter::StopADS(const FInputActionValue& Value)
 {
-	FGameplayTag ADSTag = FGameplayTag::RequestGameplayTag(FName("Event.Movement.ADS"));
-	AbilitySystemComponent->RemoveLooseGameplayTag(ADSTag);
+	// FGameplayTag ADSTag = FGameplayTag::RequestGameplayTag(FName("Event.Movement.ADS"));
+	// AbilitySystemComponent->RemoveLooseGameplayTag(ADSTag);
+	ServerRemoveTag(FName("Event.Movement.ADS"));
 }
+
+void ALaylaCharacter::ServerRemoveTag_Implementation(const FName& TagName)
+{
+	MultiRemoveTag(TagName);
+}
+
+bool ALaylaCharacter::ServerRemoveTag_Validate(const FName& TagName)
+{
+	return true;
+}
+
+void ALaylaCharacter::ServerAddTag_Implementation(const FName& TagName)
+{
+	MultiAddTag(TagName);
+}
+
+bool ALaylaCharacter::ServerAddTag_Validate(const FName& TagName)
+{
+	return true;
+}
+
+
+void ALaylaCharacter::MultiAddTag_Implementation(const FName& TagName)
+{
+	FGameplayTag TagToAdd = FGameplayTag::RequestGameplayTag(TagName);
+	AbilitySystemComponent->AddLooseGameplayTag(TagToAdd);
+}
+
+bool ALaylaCharacter::MultiAddTag_Validate(const FName& TagName)
+{
+	return true;
+}
+
+void ALaylaCharacter::MultiRemoveTag_Implementation(const FName& TagName)
+{
+	FGameplayTag TagToRemove = FGameplayTag::RequestGameplayTag(TagName);
+	AbilitySystemComponent->RemoveLooseGameplayTag(TagToRemove);
+}
+
+bool ALaylaCharacter::MultiRemoveTag_Validate(const FName& TagName)
+{
+	return true;
+}
+
 
 void ALaylaCharacter::UpdateCrouchState(const FInputActionValue& Value)
 {
@@ -586,13 +633,13 @@ void ALaylaCharacter::Aim(const FInputActionValue& Value)
 
 void ALaylaCharacter::StartFire(const FInputActionValue& Value)
 {
-	// EquipmentManager->HandleInputToEquip(EEquipmentInput::StartAttack);
-	// EquipmentManager->GetCurrentWeapon()->StartFire(&CameraLocation, &CameraRotation);
 	if(CurrentGun){
 		StartGunFire();
-		
-		FGameplayTag ADSTag = FGameplayTag::RequestGameplayTag(FName("Event.Movement.WeaponFire"));
-		AbilitySystemComponent->AddLooseGameplayTag(ADSTag);
+
+
+		ServerAddTag(FName("Event.Movement.WeaponFire"));
+		// FGameplayTag ADSTag = FGameplayTag::RequestGameplayTag(FName("Event.Movement.WeaponFire"));
+		// AbilitySystemComponent->AddLooseGameplayTag(ADSTag);
 	}
 }
 
@@ -603,8 +650,10 @@ void ALaylaCharacter::StopFire(const FInputActionValue& Value)
 	if(CurrentGun)
 	{
 		StopGunFire();
-		FGameplayTag ADSTag = FGameplayTag::RequestGameplayTag(FName("Event.Movement.WeaponFire"));
-		AbilitySystemComponent->RemoveLooseGameplayTag(ADSTag);
+
+		ServerRemoveTag(FName("Event.Movement.WeaponFire"));
+		// FGameplayTag ADSTag = FGameplayTag::RequestGameplayTag(FName("Event.Movement.WeaponFire"));
+		// AbilitySystemComponent->RemoveLooseGameplayTag(ADSTag);
 	}
 }
 

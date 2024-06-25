@@ -130,8 +130,27 @@ public:
 	virtual void StopSimulatingWeaponFire();
 	
 	virtual void Fire();
+
+	// Gun Fire Helpder
+	/** Get the aim of the weapon, allowing for adjustments to be made by the weapon */
+	virtual FVector GetAdjustedAim() const;
 	
+	/** Get the aim of the camera */
+	FVector GetCameraAim() const;
+
+	/** get the originating location for camera damage */
+	FVector GetCameraDamageStartLocation(const FVector& AimDir) const;
+
+	/** get the muzzle location of the weapon */
+	FVector GetMuzzleLocation() const;
+
+	/** get direction of weapon's muzzle */
+	FVector GetMuzzleDirection() const;
+
+	/** find hit */
+	FHitResult WeaponTrace(const FVector& TraceFrom, const FVector& TraceTo) const;
 	void HandleFiring();
+	
 
 	float LastFireTime;
 	/** wants to fire? */

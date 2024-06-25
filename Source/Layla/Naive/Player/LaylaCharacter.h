@@ -226,9 +226,20 @@ protected:
 	void EquipSecondaryWeapon(const FInputActionValue& Value);
 	void EquipMeleeWeapon(const FInputActionValue& Value);
 	void DropGun(const FInputActionValue& Value);
-
-	void StartADS(const FInputActionValue& Valu);
-	void StopADS(const FInputActionValue& Valu);
+	
+	void StartADS(const FInputActionValue& Value);
+	void StopADS(const FInputActionValue& Value);
+ 
+	// AnimInstance's GameplayTagPropertyMap only register delegate with ContainerMap(not replicated)
+	// Native Function AddOrRemove Replicated GameTag is not working, so we have to make it NetMultiCast RPC manually
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerAddTag(const FName& TagName);
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerRemoveTag(const FName& TagName);
+	UFUNCTION(NetMulticast, Reliable, WithValidation)
+	void MultiAddTag(const FName& TagName);
+	UFUNCTION(NetMulticast, Reliable, WithValidation)
+	void MultiRemoveTag(const FName& TagName);
 protected:
 	// APawn interface
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;

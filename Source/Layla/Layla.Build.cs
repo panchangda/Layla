@@ -19,7 +19,8 @@ public class Layla : ModuleRules
 			"GameplayTags",
 			"GameplayTasks",
 			"UMG",
-			"SlateCore"
+			"SlateCore",
+			"OnlineSubsystem"
 		});
 	}
 }

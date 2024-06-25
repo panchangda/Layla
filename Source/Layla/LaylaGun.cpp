@@ -356,6 +356,58 @@ void ALaylaGun::Fire()
 {
 }
 
+FVector ALaylaGun::GetAdjustedAim() const
+{
+	APlayerController* const PlayerController = GetInstigatorController<APlayerController>();
+	FVector FinalAim = FVector::ZeroVector;
+	// If we have a player controller use it for the aim
+	if (PlayerController)
+	{
+		FVector CamLoc;
+		FRotator CamRot;
+		PlayerController->GetPlayerViewPoint(CamLoc, CamRot);
+		FinalAim = CamRot.Vector();
+	}
+	else if (GetInstigator())
+	{
+		// // Now see if we have an AI controller - we will want to get the aim from there if we do
+		// AShooterAIController* AIController = MyPawn ? Cast<AShooterAIController>(MyPawn->Controller) : NULL;
+		// if(AIController != NULL )
+		// {
+		// 	FinalAim = AIController->GetControlRotation().Vector();
+		// }
+		// else
+		// {			
+		// 	FinalAim = GetInstigator()->GetBaseAimRotation().Vector();
+		// }
+	}
+
+	return FinalAim;
+}
+
+FVector ALaylaGun::GetCameraDamageStartLocation(const FVector& AimDir) const
+{
+	APlayerController* PC = OwnerPawn ? Cast<APlayerController>(OwnerPawn->Controller) : NULL;
+	// AShooterAIController* AIPC = MyPawn ? Cast<AShooterAIController>(MyPawn->Controller) : NULL;
+	FVector OutStartTrace = FVector::ZeroVector;
+
+	if (PC)
+	{
+		// use player's camera
+		FRotator UnusedRot;
+		PC->GetPlayerViewPoint(OutStartTrace, UnusedRot);
+
+		// Adjust trace so there is nothing blocking the ray between the camera and the pawn, and calculate distance from adjusted start
+		OutStartTrace = OutStartTrace + AimDir * ((GetInstigator()->GetActorLocation() - OutStartTrace) | AimDir);
+	}
+	// else if (AIPC)
+	// {
+	// 	OutStartTrace = GetMuzzleLocation();
+	// }
+
+	return OutStartTrace;
+}
+
 void ALaylaGun::OnRep_Reload()
 {
 	if(bPendingReload)
@@ -593,6 +645,18 @@ void ALaylaGun::BeginPlay()
 void ALaylaGun::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+}
+
+FHitResult ALaylaGun::WeaponTrace(const FVector& StartTrace, const FVector& EndTrace) const
+{
+	// Perform trace to retrieve hit info
+	FCollisionQueryParams TraceParams(SCENE_QUERY_STAT(WeaponTrace), true, GetInstigator());
+	TraceParams.bReturnPhysicalMaterial = true;
+
+	FHitResult Hit(ForceInit);
+	// GetWorld()->LineTraceSingleByChannel(Hit, StartTrace, EndTrace, COLLISION_WEAPON, TraceParams);
+
+	return Hit;
 }
 
 void ALaylaGun::HandleFiring()
