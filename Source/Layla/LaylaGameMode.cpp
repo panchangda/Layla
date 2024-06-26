@@ -1,7 +1,6 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "LaylaGameMode.h"
-#include "Naive/Player/LaylaCharacter.h"
 #include "UObject/ConstructorHelpers.h"
 
 ALaylaGameMode::ALaylaGameMode()
