@@ -39,19 +39,19 @@ protected:
 	virtual void BeginPlay() override;
 	
 	/** delay between first player login and starting match */
-	UPROPERTY(config)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 WarmupTime;
 
 	/** match duration */
-	UPROPERTY(config)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 RoundTime;
     	
 	/** score for kill */
-	UPROPERTY(config)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 KillScore;
 
 	/** score for death */
-	UPROPERTY(config)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 DeathScore;
 	
 private:

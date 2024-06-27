@@ -20,10 +20,12 @@ void ALaylaGameMode_FreeForAll::HandleMatchIsWaitingToStart()
 		ALaylaGameState_FreeForAll* const MyGameState = Cast<ALaylaGameState_FreeForAll>(GameState);
 		if (MyGameState && MyGameState->RemainingTime == 0)
 		{
-			const bool bWantsMatchWarmup = !GetWorld()->IsPlayInEditor();
+			// const bool bWantsMatchWarmup = !GetWorld()->IsPlayInEditor();
+			const bool bWantsMatchWarmup = true;
 			if (bWantsMatchWarmup && WarmupTime > 0)
 			{
 				MyGameState->RemainingTime = WarmupTime;
+				MyGameState->GamePhase = EGamePhase_FreeForAll::WarmUp;
 			}
 			else
 			{
@@ -39,7 +41,8 @@ void ALaylaGameMode_FreeForAll::HandleMatchHasStarted()
 	Super::HandleMatchHasStarted();
 	// Set Roundtime to GameState
 	ALaylaGameState_FreeForAll* const MyGameState = Cast<ALaylaGameState_FreeForAll>(GameState);
-	MyGameState->RemainingTime = RoundTime;	
+	MyGameState->RemainingTime = RoundTime;
+	MyGameState->GamePhase = EGamePhase_FreeForAll::InGame;
 }
 
 
@@ -111,10 +114,18 @@ void ALaylaGameMode_FreeForAll::BeginPlay()
 
 void ALaylaGameMode_FreeForAll::FinishMatch()
 {
-	ALaylaGameState_FreeForAll* const MyGameState = Cast<ALaylaGameState_FreeForAll>(GameState);
+	ALaylaGameState_FreeForAll* const GameState_FreeForAll = Cast<ALaylaGameState_FreeForAll>(GameState);
 	if (IsMatchInProgress())
 	{
 		EndMatch();
+		
+		GameState_FreeForAll->GamePhase = EGamePhase_FreeForAll::GameOver;
+
+		for (APawn* Pawn : TActorRange<APawn>(GetWorld()))
+		{
+			Pawn->TurnOff();
+		}
+		
 	}
 	
 }

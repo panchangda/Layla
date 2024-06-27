@@ -10,6 +10,7 @@
 #include "Logging/LogMacros.h"
 #include "LaylaCharacter.generated.h"
 
+class ALaylaGun;
 class ULaylaEquipment;
 class ULaylaEquipmentManager;
 class ULaylaWeapon;
@@ -43,6 +44,43 @@ public:
 	/** Follow camera */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	UCameraComponent* FollowCamera;
+
+
+
+	
+
+
+	// Chracter Infos: BP Helper Functions
+	UFUNCTION(BlueprintCallable)
+	int32 GetPrimaryAmmoInMagazine();
+
+	UFUNCTION(BlueprintCallable)
+	int32 GetSecondaryAmmoInMagazine();
+
+	UFUNCTION(BlueprintCallable)
+	ALaylaGun* GetPrimaryGun();
+
+	UFUNCTION(BlueprintCallable)
+	ALaylaGun* GetSecondaryGun();
+	
+	// UFUNCTION(BlueprintCallable)
+	// int32 GetPrimaryAmmoInInventory();
+	//
+	// UFUNCTION(BlueprintCallable)
+	// int32 GetSecondaryAmmoInInventory();
+	
+	UFUNCTION(BlueprintCallable)
+	TArray<class ALaylaGun*> GetGunList();
+	
+	UFUNCTION(BlueprintCallable)
+	int32 GetHealth();
+
+	// UFUNCTION(BlueprintCallable)
+	// int32 GetEquipment();
+	//
+	// UFUNCTION(BlueprintCallable)
+	// int32 GetInventory();
+	
 	
 	/** MappingContext */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))

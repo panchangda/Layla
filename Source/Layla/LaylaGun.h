@@ -45,7 +45,7 @@ struct FGunConfig
 };
 
 
-UCLASS()
+UCLASS(BlueprintType, Blueprintable)
 class LAYLA_API ALaylaGun : public AActor
 {
 	GENERATED_BODY()
@@ -53,7 +53,7 @@ class LAYLA_API ALaylaGun : public AActor
 public:
 	// Sets default values for this actor's properties
 	ALaylaGun();
-
+	
 	// SKM represetations
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TObjectPtr<USkeletalMeshComponent> SkeletalMeshComponent;
@@ -64,7 +64,10 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FVector2D DrawSize;
-
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	class UTexture* GunIcon;
+	
 	void OnFocused();
 	void OnFocuseLost();
 
@@ -103,7 +106,7 @@ public:
 	FGunConfig GunConfig;
 	
 	/** current ammo - inside clip */
-	UPROPERTY(Transient, Replicated)
+	UPROPERTY(Transient, Replicated, BlueprintReadOnly)
 	int32 AmmoInMagzine;
 	/** burst counter, used for replicating fire events to remote clients */
 	UPROPERTY(Transient, ReplicatedUsing=OnRep_BurstCounter)

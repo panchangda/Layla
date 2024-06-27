@@ -8,6 +8,14 @@
 
 class ALaylaPlayerState_FreeForAll;
 
+UENUM()
+enum class EGamePhase_FreeForAll : uint8
+{
+	WarmUp,
+	InGame,
+	GameOver,
+	Pause
+};
 /**
  * 
  */
@@ -37,4 +45,8 @@ public:
 	/** is timer paused? */
 	UPROPERTY(Transient, Replicated)
 	bool bTimerPaused;
+
+	UPROPERTY(Transient, Replicated)
+	EGamePhase_FreeForAll GamePhase;
+	
 };

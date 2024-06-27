@@ -30,7 +30,9 @@ public:
 	/** broadcast death to local clients */
 	UFUNCTION(Reliable, NetMulticast)
 	void BroadcastDeath(class ALaylaPlayerState_FreeForAll* KillerPlayerState, const UDamageType* KillerDamageType, class ALaylaPlayerState_FreeForAll* KilledPlayerState);
-	
+
+	int32 GetKill();
+	int32 GetDeath();
 protected:
 
 	/** number of kills */

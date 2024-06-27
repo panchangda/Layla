@@ -27,8 +27,18 @@ void ALaylaPlayerState_FreeForAll::ScoreDeath(ALaylaPlayerState_FreeForAll* Kill
 	ScorePoints(Points);
 }
 
+int32 ALaylaPlayerState_FreeForAll::GetKill()
+{
+	return NumKills;
+}
+
+int32 ALaylaPlayerState_FreeForAll::GetDeath()
+{
+	return  NumDeaths;
+}
+
 void ALaylaPlayerState_FreeForAll::BroadcastDeath_Implementation(ALaylaPlayerState_FreeForAll* KillerPlayerState,
-	const UDamageType* KillerDamageType, ALaylaPlayerState_FreeForAll* KilledPlayerState)
+                                                                 const UDamageType* KillerDamageType, ALaylaPlayerState_FreeForAll* KilledPlayerState)
 {
 	
 }

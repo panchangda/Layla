@@ -50,6 +50,7 @@ void ALaylaGameState_FreeForAll::GetLifetimeReplicatedProps( TArray< FLifetimePr
 	DOREPLIFETIME( ALaylaGameState_FreeForAll, NumPlayers );
 	DOREPLIFETIME( ALaylaGameState_FreeForAll, RemainingTime );
 	DOREPLIFETIME( ALaylaGameState_FreeForAll, bTimerPaused );
+	DOREPLIFETIME( ALaylaGameState_FreeForAll, GamePhase );
 }
 
 

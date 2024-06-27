@@ -11,7 +11,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "VectorTypes.h"
-#include "../LaylaPickup.h"
+#include "Naive/LaylaPickup.h"
 #include "AbilitySystem/LaylaAbilitySystem.h"
 #include "Layla/LaylaGun.h"
 #include "Net/UnrealNetwork.h"
@@ -90,6 +90,45 @@ ALaylaCharacter::ALaylaCharacter()
 UAbilitySystemComponent* ALaylaCharacter::GetAbilitySystemComponent() const
 {
 	return AbilitySystemComponent;
+}
+
+int32 ALaylaCharacter::GetPrimaryAmmoInMagazine()
+{
+	if(ALaylaGun* Gun = FindGun(FGameplayTag::RequestGameplayTag(FName("Weapon.Gun.Primary"))))
+	{
+		return Gun->AmmoInMagzine;
+	}
+	return -1;
+}
+
+int32 ALaylaCharacter::GetSecondaryAmmoInMagazine()
+{
+	if(ALaylaGun* Gun = FindGun(FGameplayTag::RequestGameplayTag(FName("Weapon.Gun.Secondary"))))
+	{
+		return Gun->AmmoInMagzine;
+	}
+	return -1;
+}
+
+ALaylaGun* ALaylaCharacter::GetPrimaryGun()
+{
+	return FindGun(FGameplayTag::RequestGameplayTag(FName("Weapon.Gun.Primary")));
+}
+
+ALaylaGun* ALaylaCharacter::GetSecondaryGun()
+{
+	return FindGun(FGameplayTag::RequestGameplayTag(FName("Weapon.Gun.Secondary")));
+}
+
+
+TArray<ALaylaGun* > ALaylaCharacter::GetGunList()
+{
+	return GunList;
+}
+
+int32 ALaylaCharacter::GetHealth()
+{
+	return CurrentHealth;
 }
 
 void ALaylaCharacter::BeginPlay()

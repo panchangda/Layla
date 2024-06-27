@@ -13,15 +13,34 @@ UCLASS()
 class LAYLA_API ALaylaHUD : public AHUD
 {
 	GENERATED_BODY()
+
 public:
+	ALaylaHUD();
 	virtual void DrawHUD() override;
 	virtual void BeginPlay() override;
 
+
+	// Game Infos
+	void DrawAmmoHUD();
+	void DrawRemainingTime();
+	void ToggleScoreBoardVisibility(bool bVisibility);
+	void DrawGamePhase();
+	void DrawScoreBoard();
+
+
+	// Menus
+	void DrawGameMenu();
+	
 protected:
 	UPROPERTY(EditAnywhere, Category = "UI")
-	TSubclassOf<class UUserWidget> UIClass;
+	TSubclassOf<class UUserWidget> CharacterHUDClass;
 
-private:
-	UUserWidget* UIInstance;
+	UPROPERTY(EditAnywhere, Category = "UI")
+	TSubclassOf<class UUserWidget> ScoreBoardItemClass;
 	
+private:
+	
+	UUserWidget* CharacterHUD;
+	//
+	// UUserWidget* ScoreBoardItem;
 };

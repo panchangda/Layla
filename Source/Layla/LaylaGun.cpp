@@ -3,6 +3,7 @@
 
 #include "LaylaGun.h"
 
+#include "Layla.h"
 #include "Components/AudioComponent.h"
 #include "Components/WidgetComponent.h"
 #include "GameFramework/Character.h"
@@ -408,6 +409,11 @@ FVector ALaylaGun::GetCameraDamageStartLocation(const FVector& AimDir) const
 	return OutStartTrace;
 }
 
+FVector ALaylaGun::GetMuzzleLocation() const
+{
+	return FVector();
+}
+
 void ALaylaGun::OnRep_Reload()
 {
 	if(bPendingReload)
@@ -654,7 +660,7 @@ FHitResult ALaylaGun::WeaponTrace(const FVector& StartTrace, const FVector& EndT
 	TraceParams.bReturnPhysicalMaterial = true;
 
 	FHitResult Hit(ForceInit);
-	// GetWorld()->LineTraceSingleByChannel(Hit, StartTrace, EndTrace, COLLISION_WEAPON, TraceParams);
+	GetWorld()->LineTraceSingleByChannel(Hit, StartTrace, EndTrace, COLLISION_WEAPON, TraceParams);
 
 	return Hit;
 }
