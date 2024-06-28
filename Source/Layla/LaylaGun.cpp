@@ -28,7 +28,7 @@ ALaylaGun::ALaylaGun()
 
 	WidgetComponent->SetVisibility(false);
 
-	this->SetReplicates(true);
+	this->bReplicates = true;
 	SkeletalMeshComponent->SetIsReplicated(true);
 }
 
@@ -44,75 +44,109 @@ void ALaylaGun::OnFocuseLost()
 
 void ALaylaGun::OnDrop(APawn* PrevOwner)
 {
-	
 	if(bIsEquipped)
 	{
 		LinkPawnToAnimSet(UnArmedAnimSet, PrevOwner);
-		bIsEquipped = false;
 	}else if(bPendingEquip) // Stop Pending Animation, Clear PendingEquip Timer
 	{
 		StopCharacterAnim(CharacterEquipAnim);
 		LinkPawnToAnimSet(UnArmedAnimSet, PrevOwner);
 		GetWorld()->GetTimerManager().ClearTimer(TimerHandle_OnEquipFinished);
-		bIsEquipped = false;
 		bPendingEquip = false;
 	}
+
+	bIsEquipped = false;
 	
 	DetachFromPawn();
 	
 	if (GetLocalRole() == ROLE_Authority)
 	{
-		
 		SetOwnerPawn(nullptr);
 	}
 
+		
+	FVector MuzzleLoc = GetMuzzleLocation();
+	FVector MuzzleDir = GetMuzzleDirection();
 	// Drop Action: Simulate parabola
 	FVector OwnerLocation = PrevOwner->GetActorLocation();
 	FVector OwnerForwardV = PrevOwner->GetActorForwardVector() * 100.0f; // Adjust the multiplier as needed
-	SkeletalMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	// this->SetActorLocationAndRotation(MuzzleLoc, MuzzleDir.Rotation());
 	SkeletalMeshComponent->SetWorldLocation(OwnerLocation + OwnerForwardV);
-	// SkeletalMeshComponent->SetWorldLocation(OwnerLocation, false, nullptr, ETeleportType::ResetPhysics);
 	SkeletalMeshComponent->SetRelativeScale3D(MeshScale);
-	
-	
+	SkeletalMeshComponent->SetSimulatePhysics(true);
+	SkeletalMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	// SkeletalMeshComponent->SetWorldLocation(OwnerLocation + OwnerForwardV);
+	// SkeletalMeshComponent->SetWorldLocation(OwnerLocation, false, nullptr, ETeleportType::ResetPhysics);
+
 }
 
 void ALaylaGun::OnPick(APawn* NewOwner)
 {
 	SetOwnerPawn(NewOwner);
 
-	AttachToPawn(AttachSocket_Body, AttachTransform_Body);
-
-	SkeletalMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	// Remove Physics Simulate & Collision
+	// Scale to Default Size
 	SkeletalMeshComponent->SetSimulatePhysics(false);
-	SkeletalMeshComponent->SetEnableGravity(false);
+	SkeletalMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	SkeletalMeshComponent->SetRelativeScale3D(FVector(1.f, 1.f, 1.f));
+	
+	AttachToPawn(AttachSocket_Body, AttachTransform_Body);
 }
 
 void ALaylaGun::OnEquip()
 {
 	bPendingEquip = true;
+	DetermineWeaponState();
 	AttachToPawn(AttachSocket_Hand, AttachTransform_Hand);
 	LinkOwnerPawnToAnimSet(ArmedAnimSet);
-	float Duration = PlayCharacterAnim(CharacterEquipAnim);
+	float SpeedUpRate = 1.5f;
+	float Duration = PlayCharacterAnim(CharacterEquipAnim, 1.5f);
 	if(Duration <= 0.0f)
 	{
 		// failsafe
 		Duration = 0.5f;
 	}
 
-	GetWorldTimerManager().SetTimer(TimerHandle_OnEquipFinished, this, &ALaylaGun::OnEquipFinished, Duration, false);
+	GetWorldTimerManager().SetTimer(TimerHandle_OnEquipFinished, this, &ALaylaGun::OnEquipFinished, Duration/SpeedUpRate, false);
+
+	if (OwnerPawn && OwnerPawn->IsLocallyControlled())
+	{
+		PlayWeaponSound(EquipSound);
+	}
 }
 
 void ALaylaGun::OnUnEquip()
 {
+	// if SKM Collision is set to Physics&Query, which means it was already set on server
+	// commonly happen when droping guns, we dont move skm at this situation
+	if(!SkeletalMeshComponent->IsCollisionEnabled())
+	{
+		AttachToPawn(AttachSocket_Body, AttachTransform_Body);
+	}
+
+	LinkOwnerPawnToAnimSet(UnArmedAnimSet);
+	bIsEquipped = false;
+	StopFire();
+	
+	if (bPendingReload)
+	{
+		StopWeaponAnim(GunReloadAnim);
+		bPendingReload = false;
+
+		GetWorldTimerManager().ClearTimer(TimerHandle_StopReload);
+		GetWorldTimerManager().ClearTimer(TimerHandle_ReloadWeapon);
+	}
+	
 	if(bPendingEquip)
 	{
 		StopCharacterAnim(CharacterEquipAnim);
+		bPendingEquip = false;
+		GetWorldTimerManager().ClearTimer(TimerHandle_OnEquipFinished);
 	}
-	AttachToPawn(AttachSocket_Body, AttachTransform_Body);
-	LinkOwnerPawnToAnimSet(UnArmedAnimSet);
-	bIsEquipped = false;
+
+	
+	DetermineWeaponState();
+	
 }
 
 
@@ -411,7 +445,11 @@ FVector ALaylaGun::GetCameraDamageStartLocation(const FVector& AimDir) const
 
 FVector ALaylaGun::GetMuzzleLocation() const
 {
-	return FVector();
+	return SkeletalMeshComponent->GetSocketLocation(MuzzleAttachPoint);
+}
+FVector ALaylaGun::GetMuzzleDirection() const
+{
+	return SkeletalMeshComponent->GetSocketRotation(MuzzleAttachPoint).Vector();
 }
 
 void ALaylaGun::OnRep_Reload()
@@ -534,7 +572,11 @@ void ALaylaGun::AttachToPawn(FName Socket, FTransform Transform)
 		}
 		// SkeletalMeshComponent->SetRelativeTransform(Transform);
 		SkeletalMeshComponent->SetRelativeTransform(Transform);
-		SkeletalMeshComponent->AttachToComponent(AttachTarget,FAttachmentTransformRules::KeepRelativeTransform, Socket);
+		bool bAttachSuccess = SkeletalMeshComponent->AttachToComponent(AttachTarget,FAttachmentTransformRules::KeepRelativeTransform, Socket);
+		if(!bAttachSuccess)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Gun Attch Failed!"));
+		}
 	}
 }
 
@@ -558,7 +600,7 @@ void ALaylaGun::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetim
 	DOREPLIFETIME_CONDITION( ALaylaGun, bPendingReload,		COND_SkipOwner );
 }
 
-float ALaylaGun::PlayCharacterAnim(UAnimMontage* AnimToPlay)
+float ALaylaGun::PlayCharacterAnim(UAnimMontage* AnimToPlay, float InPlayRate)
 {
 	ACharacter* Character = Cast<ACharacter>(OwnerPawn);
 	if(Character)
@@ -567,7 +609,7 @@ float ALaylaGun::PlayCharacterAnim(UAnimMontage* AnimToPlay)
 		UAnimInstance * AnimInstance = (Mesh)? Mesh->GetAnimInstance() : nullptr; 
 		if(AnimInstance && AnimToPlay)
 		{
-			return Character->PlayAnimMontage(AnimToPlay);
+			return Character->PlayAnimMontage(AnimToPlay, InPlayRate);
 		}
 	}
 	return 0.f;
@@ -631,6 +673,7 @@ void ALaylaGun::LinkPawnToAnimSet(TSubclassOf<UAnimInstance> AnimSetToLink, APaw
 
 UAudioComponent* ALaylaGun::PlayWeaponSound(USoundCue* Sound)
 {
+	return nullptr;
 	UAudioComponent* AC = NULL;
 	if (Sound && OwnerPawn)
 	{
@@ -662,6 +705,18 @@ FHitResult ALaylaGun::WeaponTrace(const FVector& StartTrace, const FVector& EndT
 	FHitResult Hit(ForceInit);
 	GetWorld()->LineTraceSingleByChannel(Hit, StartTrace, EndTrace, COLLISION_WEAPON, TraceParams);
 
+	// Draw the trace line
+	DrawDebugLine(
+		GetWorld(),
+		StartTrace,
+		EndTrace,
+		FColor::Red,
+		false, // Do not persist after this frame
+		3.0f,  // Duration the line is visible
+		0,     // Depth priority, 0 means default
+		1.0f   // Line thickness
+	);
+	
 	return Hit;
 }
 
@@ -725,5 +780,6 @@ void ALaylaGun::OnEquipFinished()
 {
 	bIsEquipped = true;
 	bPendingEquip = false;
+	DetermineWeaponState();
 }
 

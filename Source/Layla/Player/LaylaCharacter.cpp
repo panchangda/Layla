@@ -10,11 +10,15 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
+#include "LaylaGameMode.h"
 #include "VectorTypes.h"
 #include "Naive/LaylaPickup.h"
 #include "AbilitySystem/LaylaAbilitySystem.h"
+#include "Engine/DamageEvents.h"
+#include "GameType/FreeForAll/LaylaGameMode_FreeForAll.h"
 #include "Layla/LaylaGun.h"
 #include "Net/UnrealNetwork.h"
+#include "UObject/FastReferenceCollector.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
@@ -331,7 +335,7 @@ void ALaylaCharacter::SetCurrentGun(ALaylaGun* NewGun, ALaylaGun* LastGun)
 		LocalLastWeapon = CurrentGun;
 	}
 
-	// unequip previous
+	// unequip previous 
 	if (LocalLastWeapon)
 	{
 		LocalLastWeapon->OnUnEquip();
@@ -356,7 +360,7 @@ void ALaylaCharacter::OnRep_CurrentGun(ALaylaGun* LastGun)
 
 void ALaylaCharacter::EquipGun_Implementation(ALaylaGun* Gun)
 {
-	if(Gun)
+	if(Gun && Gun!= CurrentGun)
 	{
 		SetCurrentGun(Gun, CurrentGun);
 	}
@@ -722,11 +726,16 @@ void ALaylaCharacter::SetCurrentHealth(float healthValue)
 float ALaylaCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator,
 	AActor* DamageCauser)
 {
-
+	
+	if (CurrentHealth <= 0.f)
+	{
+		return 0.f;
+	}
+	
 	// Only Server should take damage: See APawn::ShouldTakeDamage
 	const float ActualDamage = Super::TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
 
-	if(ActualDamage!= 0.f)
+	if(ActualDamage > 0.f)
 	{
 		SetCurrentHealth(CurrentHealth - ActualDamage);
 	}
@@ -734,6 +743,83 @@ float ALaylaCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEvent,
 	return ActualDamage;
 }
 
+void ALaylaCharacter::Suicide()
+{
+	KilledBy(this);
+}
+
+void ALaylaCharacter::KilledBy(APawn* EventInstigator)
+{
+	// if (GetLocalRole() == ROLE_Authority && !bIsDying)
+	// {
+	// 	AController* Killer = NULL;
+	// 	if (EventInstigator != NULL)
+	// 	{
+	// 		Killer = EventInstigator->Controller;
+	// 		LastHitBy = NULL;
+	// 	}
+	//
+	// 	Die(Health, FDamageEvent(UDamageType::StaticClass()), Killer, NULL);
+	// }
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		AController* Killer = NULL;
+		if (EventInstigator != NULL)
+		{
+			Killer = EventInstigator->Controller;
+			LastHitBy = NULL;
+		}
+
+		Die(CurrentHealth, FDamageEvent(UDamageType::StaticClass()), Killer, NULL);
+	}
+}
+
+bool ALaylaCharacter::CanDie(float KillingDamage, FDamageEvent const& DamageEvent, AController* Killer,
+	AActor* DamageCauser) const
+{
+	if (						// already destroyed
+		GetLocalRole() != ROLE_Authority				// not authority
+		// || GetWorld()->GetAuthGameMode<AShooterGameMode>() == NULL
+		// || GetWorld()->GetAuthGameMode<AShooterGameMode>()->GetMatchState() == MatchState::LeavingMap // level transition occurring
+		)	
+	{
+		return false;
+	}
+
+	return true;
+}
+
+bool ALaylaCharacter::Die(float KillingDamage, FDamageEvent const& DamageEvent, AController* Killer,
+	AActor* DamageCauser)
+{
+	if (!CanDie(KillingDamage, DamageEvent, Killer, DamageCauser))
+	{
+		return false;
+	}
+
+	CurrentHealth = FMath::Min(0.0f, CurrentHealth);
+
+	// if this is an environmental death then refer to the previous killer so that they receive credit (knocked into lava pits, etc)
+	UDamageType const* const DamageType = DamageEvent.DamageTypeClass ? DamageEvent.DamageTypeClass->GetDefaultObject<UDamageType>() : GetDefault<UDamageType>();
+	Killer = GetDamageInstigator(Killer, *DamageType);
+
+	AController* const KilledPlayer = (Controller.Get()) ? Controller.Get() : Cast<AController>(GetOwner());
+	GetWorld()->GetAuthGameMode<ALaylaGameMode_FreeForAll>()->Killed(Killer, KilledPlayer, this, DamageType);
+
+	NetUpdateFrequency = GetDefault<ALaylaCharacter>()->NetUpdateFrequency;
+	GetCharacterMovement()->ForceReplicationUpdate();
+
+
+	// OnDeath(KillingDamage, DamageEvent, Killer ? Killer->GetPawn() : NULL, DamageCauser);
+	return true;
+	
+}
+
+void ALaylaCharacter::FellOutOfWorld(const UDamageType& dmgType)
+{
+	Super::FellOutOfWorld(dmgType);
+	
+}
 
 
 void ALaylaCharacter::OnRep_CurrentHealth()

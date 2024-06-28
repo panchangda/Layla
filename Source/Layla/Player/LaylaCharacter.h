@@ -174,10 +174,30 @@ public:
  
 	/** 承受伤害的事件。从APawn覆盖。*/
 	UFUNCTION(BlueprintCallable, Category = "Health")
-	float TakeDamage( float DamageTaken, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser ) override;
+	virtual float TakeDamage( float DamageTaken, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser ) override;
 
 
+	/** Pawn suicide */
+	virtual void Suicide();
 
+	/** Kill this pawn */
+	virtual void KilledBy(class APawn* EventInstigator);
+
+	/** Returns True if the pawn can die in the current state */
+	virtual bool CanDie(float KillingDamage, FDamageEvent const& DamageEvent, AController* Killer, AActor* DamageCauser) const;
+
+	/**
+	* Kills pawn.  Server/authority only.
+	* @param KillingDamage - Damage amount of the killing blow
+	* @param DamageEvent - Damage event of the killing blow
+	* @param Killer - Who killed this pawn
+	* @param DamageCauser - the Actor that directly caused the damage (i.e. the Projectile that exploded, the Weapon that fired, etc)
+	* @returns true if allowed
+	*/
+	virtual bool Die(float KillingDamage, struct FDamageEvent const& DamageEvent, class AController* Killer, class AActor* DamageCauser);
+
+	// Die when we fall out of the world.
+	virtual void FellOutOfWorld(const class UDamageType& dmgType) override;
 
 
 

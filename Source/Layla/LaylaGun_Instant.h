@@ -113,7 +113,12 @@ public:
 	float CurrentFiringSpread;
 	
 	float GetCurrentSpread();
-	
+
+	/** check if weapon should deal damage to actor */
+	bool ShouldDealDamage(AActor* TestActor) const;
+
+	/** handle damage */
+	void DealDamage(const FHitResult& Impact, const FVector& ShootDir);
 
 	/** server notified of hit from client to verify */
 	UFUNCTION(reliable, server, WithValidation)

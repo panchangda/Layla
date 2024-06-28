@@ -3,6 +3,7 @@
 
 #include "LaylaGun_Instant.h"
 
+#include "Engine/DamageEvents.h"
 #include "Net/UnrealNetwork.h"
 
 
@@ -50,8 +51,35 @@ float ALaylaGun_Instant::GetCurrentSpread()
 	return FinalSpread;
 }
 
+bool ALaylaGun_Instant::ShouldDealDamage(AActor* TestActor) const
+{
+	// if we're an actor on the server, or the actor's role is authoritative, we should register damage
+	if (TestActor)
+	{
+		if (GetNetMode() != NM_Client ||
+			TestActor->GetLocalRole() == ROLE_Authority ||
+			TestActor->GetTearOff())
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void ALaylaGun_Instant::DealDamage(const FHitResult& Impact, const FVector& ShootDir)
+{
+	FPointDamageEvent PointDmg;
+	PointDmg.DamageTypeClass = InstantConfig.DamageType;
+	PointDmg.HitInfo = Impact;
+	PointDmg.ShotDirection = ShootDir;
+	PointDmg.Damage = InstantConfig.HitDamage;
+
+	Impact.GetActor()->TakeDamage(PointDmg.Damage, PointDmg, OwnerPawn->Controller, this);
+}
+
 void ALaylaGun_Instant::ServerNotifyMiss_Implementation(FVector_NetQuantizeNormal ShootDir, int32 RandomSeed,
-	float ReticleSpread)
+                                                        float ReticleSpread)
 {
 	const FVector Origin = GetMuzzleLocation();
 
@@ -187,6 +215,29 @@ void ALaylaGun_Instant::ProcessInstantHit(const FHitResult& Impact, const FVecto
 void ALaylaGun_Instant::ProcessInstantHit_Confirmed(const FHitResult& Impact, const FVector& Origin,
 	const FVector& ShootDir, int32 RandomSeed, float ReticleSpread)
 {
+	// handle damage
+	if (ShouldDealDamage(Impact.GetActor()))
+	{
+		DealDamage(Impact, ShootDir);
+	}
+
+	// play FX on remote clients
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		HitNotify.Origin = Origin;
+		HitNotify.RandomSeed = RandomSeed;
+		HitNotify.ReticleSpread = ReticleSpread;
+	}
+
+	// play FX locally
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		const FVector EndTrace = Origin + ShootDir * InstantConfig.WeaponRange;
+		const FVector EndPoint = Impact.GetActor() ? Impact.ImpactPoint : EndTrace;
+
+		// SpawnTrailEffect(EndPoint);
+		// SpawnImpactEffects(Impact);
+	}
 }
 
 // Called when the game starts or when spawned

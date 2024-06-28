@@ -144,6 +144,10 @@ public:
 	/** get the originating location for camera damage */
 	FVector GetCameraDamageStartLocation(const FVector& AimDir) const;
 
+	/** name of bone/socket for muzzle in weapon mesh */
+	UPROPERTY(EditDefaultsOnly, Category=Effects)
+	FName MuzzleAttachPoint;
+	
 	/** get the muzzle location of the weapon */
 	FVector GetMuzzleLocation() const;
 
@@ -230,7 +234,7 @@ public:
 	UAnimMontage* GunFireAnim;
 	UPROPERTY(EditDefaultsOnly, Category=Animation)
 	UAnimMontage* GunReloadAnim;
-	float PlayCharacterAnim(UAnimMontage* AnimToPlay);
+	float PlayCharacterAnim(UAnimMontage* AnimToPlay, float InPlayRate = 1.0f);
 	float PlayWeaponAnim(UAnimMontage* AnimToPlay);
 	void StopCharacterAnim(UAnimMontage* AnimToStop);
 	void StopWeaponAnim(UAnimMontage* AnimToStop);
