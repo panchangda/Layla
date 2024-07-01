@@ -21,7 +21,8 @@ public class Layla : ModuleRules
 			"UMG",
 			"SlateCore",
 			"OnlineSubsystem",
-			"OnlineSubsystemUtils"
+			"OnlineSubsystemUtils",
+			"PhysicsCore"
 		});
 	}
 }

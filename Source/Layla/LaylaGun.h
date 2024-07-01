@@ -67,6 +67,9 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	class UTexture* GunIcon;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	class UTexture* AmmoIcon;
 	
 	void OnFocused();
 	void OnFocuseLost();
@@ -125,6 +128,18 @@ public:
 	bool bPlayingFireAnim = false;
 	bool bLoopedFireAnim = false;
 	bool bLoopedFireSound = false;
+
+	/** is muzzle FX looped? */
+	UPROPERTY(EditDefaultsOnly, Category=Effects)
+	bool bLoopedMuzzleFX = false;
+	
+	/** FX for muzzle flash */
+	UPROPERTY(EditDefaultsOnly)
+	UParticleSystem* MuzzleFX;
+
+	/** spawned component for muzzle FX */
+	UPROPERTY(Transient)
+	UParticleSystemComponent* MuzzlePSC;
 	
 	/** Called in network play to do the cosmetic fx for firing */
 	virtual void SimulateWeaponFire();

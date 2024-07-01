@@ -34,7 +34,7 @@ bool ALaylaCharacter::LineTraceAlongCamera(FHitResult& HitResult)
 	
 	FVector SpawnLocation = FVector(0.0, 0.0, 0.0);
 	FRotator SpawnRotation = (CameraViewFarEnd - SpawnLocation).Rotation();	
-	DrawDebugLine(GetWorld(), CameraLocation, CameraViewFarEnd,  FColor::Red);
+	// DrawDebugLine(GetWorld(), CameraLocation, CameraViewFarEnd,  FColor::Red);
 	
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(this);

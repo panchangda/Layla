@@ -9,6 +9,7 @@
 #include "GameFramework/Character.h"
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
+#include "Particles/ParticleSystemComponent.h"
 #include "Sound/SoundCue.h"
 
 
@@ -343,6 +344,18 @@ void ALaylaGun::SimulateWeaponFire()
 		return;
 	}
 
+	// Muzzle FX
+	if(MuzzleFX)
+	{
+		if (!bLoopedMuzzleFX || MuzzlePSC == NULL)
+		{
+			if( (OwnerPawn != NULL ) && ( OwnerPawn->IsLocallyControlled() == true ) )
+			{
+				MuzzlePSC = UGameplayStatics::SpawnEmitterAttached(MuzzleFX, SkeletalMeshComponent, MuzzleAttachPoint);
+			}
+		}
+	}
+	
 	// Anim      
 	if (!bLoopedFireAnim || !bPlayingFireAnim)
 	{
@@ -364,8 +377,6 @@ void ALaylaGun::SimulateWeaponFire()
 		PlayWeaponSound(FireSound);
 	}
 	
-	// Muzzle FX
-	
 	// Camera Shake
 
 
@@ -373,6 +384,16 @@ void ALaylaGun::SimulateWeaponFire()
 
 void ALaylaGun::StopSimulatingWeaponFire()
 {
+
+	if (bLoopedMuzzleFX)
+	{
+		if( MuzzlePSC != NULL )
+		{
+			MuzzlePSC->DeactivateSystem();
+			MuzzlePSC = NULL;
+		}
+	}
+	
 	if (bLoopedFireAnim && bPlayingFireAnim)
 	{
 		StopWeaponAnim(GunFireAnim);
@@ -706,16 +727,16 @@ FHitResult ALaylaGun::WeaponTrace(const FVector& StartTrace, const FVector& EndT
 	GetWorld()->LineTraceSingleByChannel(Hit, StartTrace, EndTrace, COLLISION_WEAPON, TraceParams);
 
 	// Draw the trace line
-	DrawDebugLine(
-		GetWorld(),
-		StartTrace,
-		EndTrace,
-		FColor::Red,
-		false, // Do not persist after this frame
-		3.0f,  // Duration the line is visible
-		0,     // Depth priority, 0 means default
-		1.0f   // Line thickness
-	);
+	// DrawDebugLine(
+	// 	GetWorld(),
+	// 	StartTrace,
+	// 	EndTrace,
+	// 	FColor::Red,
+	// 	false, // Do not persist after this frame
+	// 	3.0f,  // Duration the line is visible
+	// 	0,     // Depth priority, 0 means default
+	// 	1.0f   // Line thickness
+	// );
 	
 	return Hit;
 }

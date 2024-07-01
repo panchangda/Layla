@@ -108,6 +108,25 @@ public:
 
 	UPROPERTY(EditDefaultsOnly)
 	float GunMaxRange;
+
+
+
+	// FXs: ImpactFX, Decal, TrailFX, MuzzleFX
+	/** material */
+	UPROPERTY(EditDefaultsOnly, Category=Effects)
+	TSubclassOf<class ALaylaImpactEffect> ImpactTemplate;
+	
+	/** smoke trail */
+	UPROPERTY(EditDefaultsOnly, Category=Effects)
+	UParticleSystem* TrailFX;
+
+	/** param name for beam target in smoke trail */
+	UPROPERTY(EditDefaultsOnly, Category=Effects)
+	FName TrailTargetParam;
+
+	UPROPERTY(EditDefaultsOnly, Category=Effects)
+	UParticleSystem* FleshFX;
+
 	
 	/** current spread from continuous firing */
 	float CurrentFiringSpread;
@@ -148,4 +167,10 @@ private:
 
 	/** called in network play to do the cosmetic fx  */
 	void SimulateInstantHit(const FVector& Origin, int32 RandomSeed, float ReticleSpread);
+
+	/** spawn effects for impact */
+	void SpawnImpactEffects(const FHitResult& Impact);
+	
+	/** spawn trail effect */
+	void SpawnTrailEffect(const FVector& EndPoint);
 };

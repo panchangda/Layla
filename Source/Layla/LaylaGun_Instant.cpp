@@ -3,8 +3,11 @@
 
 #include "LaylaGun_Instant.h"
 
+#include "LaylaImpactEffect.h"
 #include "Engine/DamageEvents.h"
+#include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
+#include "Particles/ParticleSystemComponent.h"
 
 
 // Sets default values
@@ -92,7 +95,7 @@ void ALaylaGun_Instant::ServerNotifyMiss_Implementation(FVector_NetQuantizeNorma
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		const FVector EndTrace = Origin + ShootDir * InstantConfig.WeaponRange;
-		// SpawnTrailEffect(EndTrace);
+		SpawnTrailEffect(EndTrace);
 	}
 }
 
@@ -235,8 +238,8 @@ void ALaylaGun_Instant::ProcessInstantHit_Confirmed(const FHitResult& Impact, co
 		const FVector EndTrace = Origin + ShootDir * InstantConfig.WeaponRange;
 		const FVector EndPoint = Impact.GetActor() ? Impact.ImpactPoint : EndTrace;
 
-		// SpawnTrailEffect(EndPoint);
-		// SpawnImpactEffects(Impact);
+		SpawnTrailEffect(EndPoint);
+		SpawnImpactEffects(Impact);
 	}
 }
 
@@ -264,6 +267,55 @@ void ALaylaGun_Instant::SimulateInstantHit(const FVector& Origin, int32 RandomSe
 	const FVector EndTrace = StartTrace + ShootDir * InstantConfig.WeaponRange;
 
 	FHitResult Impact = WeaponTrace(StartTrace, EndTrace);
+	if (Impact.bBlockingHit)
+	{
+		SpawnImpactEffects(Impact);
+		SpawnTrailEffect(Impact.ImpactPoint);
+	}
+	else
+	{
+		SpawnTrailEffect(EndTrace);
+	}
+}
+
+// Determine Partciel Type by Impact Surface Physics 
+void ALaylaGun_Instant::SpawnImpactEffects(const FHitResult& Impact)
+{
+	if(Impact.bBlockingHit)
+	{
+		FHitResult UseImpact = Impact;
+		// trace again to find component lost during replication
+		if (!Impact.Component.IsValid())
+		{
+			const FVector StartTrace = Impact.ImpactPoint + Impact.ImpactNormal * 10.0f;
+			const FVector EndTrace = Impact.ImpactPoint - Impact.ImpactNormal * 10.0f;
+			FHitResult Hit = WeaponTrace(StartTrace, EndTrace);
+			UseImpact = Hit;
+		}
+
+		FTransform const SpawnTransform(Impact.ImpactNormal.Rotation(), Impact.ImpactPoint);
+		ALaylaImpactEffect* EffectActor = GetWorld()->SpawnActorDeferred<ALaylaImpactEffect>(ImpactTemplate, SpawnTransform);
+		if (EffectActor)
+		{
+			EffectActor->SurfaceHit = UseImpact;
+			UGameplayStatics::FinishSpawningActor(EffectActor, SpawnTransform);
+		}
+		
+	}
+}
+
+void ALaylaGun_Instant::SpawnTrailEffect(const FVector& EndPoint)
+{
+	if (TrailFX)
+	{
+		const FVector Origin = GetMuzzleLocation();
+
+		UParticleSystemComponent* TrailPSC = UGameplayStatics::SpawnEmitterAtLocation(this, TrailFX, Origin);
+		if (TrailPSC)
+		{
+			TrailPSC->SetVectorParameter(TrailTargetParam, EndPoint);
+		}
+	}
 }
 
 void ALaylaGun_Instant::GetLifetimeReplicatedProps( TArray< FLifetimeProperty > & OutLifetimeProps ) const
