@@ -18,6 +18,8 @@
 #include "GameType/FreeForAll/LaylaGameMode_FreeForAll.h"
 #include "Layla/LaylaGun.h"
 #include "Net/UnrealNetwork.h"
+
+
 #include "UObject/FastReferenceCollector.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
@@ -60,7 +62,7 @@ ALaylaCharacter::ALaylaCharacter()
 	// instead of recompiling to adjust them
 	GetCharacterMovement()->JumpZVelocity = 700.f;
 	GetCharacterMovement()->AirControl = 0.35f;
-	GetCharacterMovement()->MaxWalkSpeed = 500.f;
+	GetCharacterMovement()->MaxWalkSpeed = 600.f;
 	GetCharacterMovement()->MinAnalogWalkSpeed = 20.f;
 	GetCharacterMovement()->BrakingDecelerationWalking = 2000.f;
 	GetCharacterMovement()->BrakingDecelerationFalling = 1500.0f;
@@ -94,6 +96,49 @@ ALaylaCharacter::ALaylaCharacter()
 UAbilitySystemComponent* ALaylaCharacter::GetAbilitySystemComponent() const
 {
 	return AbilitySystemComponent;
+}
+
+void ALaylaCharacter::SetRagdollPhysics()
+{
+	bool bInRagdoll = false;
+
+	// if (IsPendingKill())
+	// {
+	// 	bInRagdoll = false;
+	// }
+	if (false)
+	{
+		bInRagdoll = false;
+	}
+	else if (!GetMesh() || !GetMesh()->GetPhysicsAsset())
+	{
+		bInRagdoll = false;
+	}
+	else
+	{
+		// initialize physics/etc
+		GetMesh()->SetSimulatePhysics(true);
+		GetMesh()->WakeAllRigidBodies();
+		GetMesh()->bBlendPhysics = true;
+
+		bInRagdoll = true;
+	}
+
+	GetCharacterMovement()->StopMovementImmediately();
+	GetCharacterMovement()->DisableMovement();
+	GetCharacterMovement()->SetComponentTickEnabled(false);
+
+	if (!bInRagdoll)
+	{
+		// hide and set short lifespan
+		TurnOff();
+		SetActorHiddenInGame(true);
+		SetLifeSpan(1.0f);
+	}
+	else
+	{
+		SetLifeSpan(10.0f);
+	}
 }
 
 int32 ALaylaCharacter::GetPrimaryAmmoInMagazine()
@@ -560,7 +605,8 @@ void ALaylaCharacter::DropGun(const FInputActionValue& Value)
 void ALaylaCharacter::StartADS(const FInputActionValue& Value)	
 {
 	// FGameplayTag ADSTag = FGameplayTag::RequestGameplayTag(FName("Event.Movement.ADS"));
-
+	
+	GetCharacterMovement()->MaxWalkSpeed = 300.0f;
 	ServerAddTag(FName("Event.Movement.ADS"));
 	
 	// AnimInstance's GameplayTagPropertyMap Only Register NewOrRemove Delegate, no need to toggle count
@@ -575,6 +621,8 @@ void ALaylaCharacter::StopADS(const FInputActionValue& Value)
 {
 	// FGameplayTag ADSTag = FGameplayTag::RequestGameplayTag(FName("Event.Movement.ADS"));
 	// AbilitySystemComponent->RemoveLooseGameplayTag(ADSTag);
+
+	GetCharacterMovement()->MaxWalkSpeed = 500.0f;
 	ServerRemoveTag(FName("Event.Movement.ADS"));
 }
 
@@ -679,7 +727,6 @@ void ALaylaCharacter::StartFire(const FInputActionValue& Value)
 	if(CurrentGun){
 		StartGunFire();
 
-
 		ServerAddTag(FName("Event.Movement.WeaponFire"));
 		// FGameplayTag ADSTag = FGameplayTag::RequestGameplayTag(FName("Event.Movement.WeaponFire"));
 		// AbilitySystemComponent->AddLooseGameplayTag(ADSTag);
@@ -707,10 +754,23 @@ void ALaylaCharacter::StopFire(const FInputActionValue& Value)
 void ALaylaCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	//复制当前生命值。
+	
 	DOREPLIFETIME(ALaylaCharacter, CurrentHealth);
 	DOREPLIFETIME(ALaylaCharacter, GunList);
 	DOREPLIFETIME(ALaylaCharacter, CurrentGun);
+
+	DOREPLIFETIME_CONDITION(ALaylaCharacter, LastTakeHitInfo, COND_Custom);
+}
+
+//////////////////////////////////////////////////////////////////////////
+// Replication
+
+void ALaylaCharacter::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker)
+{
+	Super::PreReplication(ChangedPropertyTracker);
+
+	// Only replicate this property for a short duration after it changes so join in progress players don't get spammed with fx when joining late
+	DOREPLIFETIME_ACTIVE_OVERRIDE(ALaylaCharacter, LastTakeHitInfo, GetWorld() && GetWorld()->GetTimeSeconds() < LastTakeHitTimeTimeout);
 }
 
 // Server-Side Set
@@ -735,9 +795,19 @@ float ALaylaCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEvent,
 	// Only Server should take damage: See APawn::ShouldTakeDamage
 	const float ActualDamage = Super::TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
 
+	//
 	if(ActualDamage > 0.f)
 	{
-		SetCurrentHealth(CurrentHealth - ActualDamage);
+		CurrentHealth -= ActualDamage;
+		if(CurrentHealth<=0)
+		{
+			Die(ActualDamage, DamageEvent, EventInstigator, DamageCauser);
+		}else
+		{
+			PlayHit(ActualDamage, DamageEvent, EventInstigator ? EventInstigator->GetPawn() : nullptr, DamageCauser);
+		}
+
+		MakeNoise(1.0f, EventInstigator ? EventInstigator->GetPawn() : this);
 	}
 	
 	return ActualDamage;
@@ -777,7 +847,7 @@ void ALaylaCharacter::KilledBy(APawn* EventInstigator)
 bool ALaylaCharacter::CanDie(float KillingDamage, FDamageEvent const& DamageEvent, AController* Killer,
 	AActor* DamageCauser) const
 {
-	if (						// already destroyed
+	if ( bIsDying||						// already destroyed
 		GetLocalRole() != ROLE_Authority				// not authority
 		// || GetWorld()->GetAuthGameMode<AShooterGameMode>() == NULL
 		// || GetWorld()->GetAuthGameMode<AShooterGameMode>()->GetMatchState() == MatchState::LeavingMap // level transition occurring
@@ -804,21 +874,226 @@ bool ALaylaCharacter::Die(float KillingDamage, FDamageEvent const& DamageEvent, 
 	Killer = GetDamageInstigator(Killer, *DamageType);
 
 	AController* const KilledPlayer = (Controller.Get()) ? Controller.Get() : Cast<AController>(GetOwner());
-	GetWorld()->GetAuthGameMode<ALaylaGameMode_FreeForAll>()->Killed(Killer, KilledPlayer, this, DamageType);
+	ALaylaGameMode_FreeForAll* AuthGameMode = GetWorld()->GetAuthGameMode<ALaylaGameMode_FreeForAll>();
+	if(AuthGameMode)
+	{
+		AuthGameMode->Killed(Killer, KilledPlayer, this, DamageType);
+	}
 
 	NetUpdateFrequency = GetDefault<ALaylaCharacter>()->NetUpdateFrequency;
 	GetCharacterMovement()->ForceReplicationUpdate();
 
-
-	// OnDeath(KillingDamage, DamageEvent, Killer ? Killer->GetPawn() : NULL, DamageCauser);
+	OnDeath(KillingDamage, DamageEvent, Killer ? Killer->GetPawn() : NULL, DamageCauser);
 	return true;
 	
 }
 
 void ALaylaCharacter::FellOutOfWorld(const UDamageType& dmgType)
 {
-	Super::FellOutOfWorld(dmgType);
+	// Super::FellOutOfWorld(dmgType);
+	Die(CurrentHealth, FDamageEvent(dmgType.GetClass()), NULL, NULL);
+}
+
+void ALaylaCharacter::PlayHit(float DamageTaken, FDamageEvent const& DamageEvent, APawn* PawnInstigator,
+	AActor* DamageCauser)
+{
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		ReplicateHit(DamageTaken, DamageEvent, PawnInstigator, DamageCauser, false);
+
+	}
+
+	// hud notify hit
 	
+}
+
+void ALaylaCharacter::OnDeath(float KillingDamage, FDamageEvent const& DamageEvent, APawn* PawnInstigator,
+	AActor* DamageCauser)
+{
+	if(bIsDying)
+	{
+		return ;
+	}
+
+	SetReplicatingMovement(false);
+	TearOff();
+	bIsDying = true;
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		ReplicateHit(KillingDamage, DamageEvent, PawnInstigator, DamageCauser, true);
+	}
+
+	DetachFromControllerPendingDestroy();
+	StopAllAnimMontages();
+
+
+	// Set Mesh Using Ragdoll Channel Collision
+	if (GetMesh())
+	{
+		static FName CollisionProfileName(TEXT("Ragdoll"));
+		GetMesh()->SetCollisionProfileName(CollisionProfileName);
+	}
+	SetActorEnableCollision(true);
+
+
+	float DeathAnimDuration = 0.0f;
+	// Choose Death Anim based on Character Face Dir & Instigator Location
+	if(PawnInstigator)
+	{
+		// FVector ImpulseDir;    
+		// FHitResult Hit;
+		//
+		// DamageEvent.GetBestHitInfo(this, PawnInstigator, Hit, ImpulseDir);
+		//
+		// const FVector HitVector = FRotationMatrix(GetControlRotation()).InverseTransformVector(-ImpulseDir);
+		//
+		// FVector Dirs2[8] = { 
+		// 	FVector(0,-1,0) /*left*/, 
+		// 	FVector(1,-1,0) /*front left*/, 
+		// 	FVector(1,0,0) /*front*/, 
+		// 	FVector(1,1,0) /*front right*/, 
+		// 	FVector(0,1,0) /*right*/, 
+		// 	FVector(-1,1,0) /*back right*/, 
+		// 	FVector(-1,0,0), /*back*/
+		// 	FVector(-1,-1,0) /*back left*/ 
+		// };
+		// int32 DirIndex = -1;
+		// float HighestModifier = 0;
+		//
+		// for (uint8 i = 0; i < 8; i++)
+		// {
+		// 	//Normalize our direction vectors
+		// 	Dirs2[i].Normalize();
+		// 	const float DirModifier = FMath::Max(0.0f, FVector::DotProduct(Dirs2[i], HitVector));
+		// 	if (DirModifier > HighestModifier)
+		// 	{
+		// 		DirIndex = i;
+		// 		HighestModifier = DirModifier;
+		// 	}
+		// }
+		//
+		// if(DirIndex == 0)
+		// {
+		// 	DeathAnimDuration = PlayAnimMontage(DeathAnim_Left);
+		// }else if(DirIndex>=1 && DirIndex <=3)
+		// {
+		// 	DeathAnimDuration = PlayAnimMontage(DeathAnim_Front);
+		// }else if(DirIndex == 4)
+		// {
+		// 	DeathAnimDuration = PlayAnimMontage(DeathAnim_Right);
+		// }else
+		// {
+		// 	DeathAnimDuration = PlayAnimMontage(DeathAnim_Back);
+		// }
+		FVector InstigatorLoc = PawnInstigator->GetActorLocation();
+		FVector SelfLoc = GetActorLocation();
+		FVector SelfForward = GetActorForwardVector().GetSafeNormal();
+		// 计算从角色到攻击者的向量
+		FVector ToInstigator = (InstigatorLoc - SelfLoc).GetSafeNormal();
+		
+		// 计算前向量和ToInstigator向量之间的点积
+		float ForwardDot = FVector::DotProduct(SelfForward, ToInstigator);
+		float RightDot = FVector::DotProduct(GetActorRightVector(), ToInstigator);
+		
+		// 选择合适的死亡动画
+		if (ForwardDot > 0.7f)
+		{
+			// 攻击来自前方
+			DeathAnimDuration = PlayAnimMontage(DeathAnim_Front);
+		}
+		else if (ForwardDot < -0.7f)
+		{
+			// 攻击来自后方
+			DeathAnimDuration = PlayAnimMontage(DeathAnim_Back);
+		}
+		else if (RightDot > 0.7f)
+		{
+			// 攻击来自右侧
+			DeathAnimDuration = PlayAnimMontage(DeathAnim_Right);
+		}
+		else if (RightDot < -0.7f)
+		{
+			// 攻击来自左侧
+			DeathAnimDuration = PlayAnimMontage(DeathAnim_Left);
+		}
+	}
+	
+	
+	
+
+	// Ragdoll
+	if (DeathAnimDuration > 0.f)
+	{
+		// Trigger ragdoll a little before the animation early so the character doesn't
+		// blend back to its normal position.
+		const float TriggerRagdollTime = DeathAnimDuration - 0.7f;
+
+		// Enable blend physics so the bones are properly blending against the montage.
+		GetMesh()->bBlendPhysics = true;
+
+		// Use a local timer handle as we don't need to store it for later but we don't need to look for something to clearw
+		FTimerHandle TimerHandle;
+		GetWorldTimerManager().SetTimer(TimerHandle, this, &ALaylaCharacter::SetRagdollPhysics, FMath::Max(0.1f, TriggerRagdollTime), false);
+	}
+	else
+	{
+		SetRagdollPhysics();
+	}
+
+	// disable collisions on capsule
+	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	GetCapsuleComponent()->SetCollisionResponseToAllChannels(ECR_Ignore);
+	
+}
+
+void ALaylaCharacter::ReplicateHit(float Damage, FDamageEvent const& DamageEvent, APawn* PawnInstigator,
+	AActor* DamageCauser, bool bKilled)
+{
+	const float TimeoutTime = GetWorld()->GetTimeSeconds() + 0.5f;
+
+	FDamageEvent const& LastDamageEvent = LastTakeHitInfo.GetDamageEvent();
+	if ((PawnInstigator == LastTakeHitInfo.PawnInstigator.Get()) && (LastDamageEvent.DamageTypeClass == LastTakeHitInfo.DamageTypeClass) && (LastTakeHitTimeTimeout == TimeoutTime))
+	{
+		// same frame damage
+		if (bKilled && LastTakeHitInfo.bKilled)
+		{
+			// Redundant death take hit, just ignore it
+			return;
+		}
+
+		// otherwise, accumulate damage done this frame
+		Damage += LastTakeHitInfo.ActualDamage;
+	}
+
+	LastTakeHitInfo.ActualDamage = Damage;
+	LastTakeHitInfo.PawnInstigator = Cast<ALaylaCharacter>(PawnInstigator);
+	LastTakeHitInfo.DamageCauser = DamageCauser;
+	LastTakeHitInfo.SetDamageEvent(DamageEvent);
+	LastTakeHitInfo.bKilled = bKilled;
+	LastTakeHitInfo.EnsureReplication();
+
+	LastTakeHitTimeTimeout = TimeoutTime;
+}
+
+void ALaylaCharacter::OnRep_LastTakeHitInfo()
+{
+	if (LastTakeHitInfo.bKilled)
+	{
+		OnDeath(LastTakeHitInfo.ActualDamage, LastTakeHitInfo.GetDamageEvent(), LastTakeHitInfo.PawnInstigator.Get(), LastTakeHitInfo.DamageCauser.Get());
+	}
+	else
+	{
+		PlayHit(LastTakeHitInfo.ActualDamage, LastTakeHitInfo.GetDamageEvent(), LastTakeHitInfo.PawnInstigator.Get(), LastTakeHitInfo.DamageCauser.Get());
+	}
+}
+
+void ALaylaCharacter::StopAllAnimMontages()
+{
+	USkeletalMeshComponent* UseMesh = GetMesh();
+	if (UseMesh && UseMesh->AnimScriptInstance)
+	{
+		UseMesh->AnimScriptInstance->Montage_Stop(0.0f);
+	}
 }
 
 

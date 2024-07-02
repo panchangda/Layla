@@ -6,7 +6,7 @@
 #include "GameFramework/GameState.h"
 #include "LaylaGameState_FreeForAll.generated.h"
 
-class ALaylaPlayerState_FreeForAll;
+class ALaylaPlayerState;
 
 UENUM()
 enum class EGamePhase_FreeForAll : uint8
@@ -20,7 +20,7 @@ enum class EGamePhase_FreeForAll : uint8
  * 
  */
 /** ranked PlayerState map, created from the GameState */
-typedef TMap<int32, TWeakObjectPtr<ALaylaPlayerState_FreeForAll> > RankedPlayerMap;
+typedef TMap<int32, TWeakObjectPtr<ALaylaPlayerState> > RankedPlayerMap;
 
 UCLASS()
 class LAYLA_API ALaylaGameState_FreeForAll : public AGameState

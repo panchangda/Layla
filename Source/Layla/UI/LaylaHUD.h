@@ -6,6 +6,47 @@
 #include "GameFramework/HUD.h"
 #include "LaylaHUD.generated.h"
 
+class ALaylaPlayerState;
+
+USTRUCT()
+struct FDeathMessage
+{
+	GENERATED_BODY()
+
+	/** Name of player scoring kill. */
+	FString KillerDesc;
+
+	/** Name of killed player. */
+	FString VictimDesc;
+
+	/** Killer is local player. */
+	uint8 bKillerIsOwner : 1;
+	
+	/** Victim is local player. */
+	uint8 bVictimIsOwner : 1;
+
+	/** Team number of the killer. */
+	int32 KillerTeamNum;
+
+	/** Team number of the victim. */
+	int32 VictimTeamNum; 
+
+	/** timestamp for removing message */
+	float HideTime;
+
+	/** What killed the player. */
+	TWeakObjectPtr<class UDamageType> DamageType;
+
+	/** Initialise defaults. */
+	FDeathMessage()
+		: bKillerIsOwner(false)
+		, bVictimIsOwner(false)
+		, KillerTeamNum(0)
+		, VictimTeamNum(0)		
+		, HideTime(0.f)
+	{
+	}
+};
 /**
  * 
  */
@@ -23,24 +64,48 @@ public:
 	// Game Infos
 	void DrawAmmoHUD();
 	void DrawRemainingTime();
-	void ToggleScoreBoardVisibility(bool bVisibility);
 	void DrawGamePhase();
 	void DrawScoreBoard();
-
-
+	void DrawHitIndicator();
+	void ShowDeathMessage(ALaylaPlayerState* KillerPlayerState,
+	ALaylaPlayerState* KilledPlayerState, const UDamageType* KillerDamageType);
+	
 	// Menus
 	void DrawGameMenu();
+
+	// Visibility Helpers: use by Player Controller
+	void ToggleScoreBoardVisibility(bool bVisibility);
+	void ShowScoreBoard();
+	void HideScoreBoard();
+
+	void ToggleGameMenuVisibility();
 	
 protected:
 	UPROPERTY(EditAnywhere, Category = "UI")
 	TSubclassOf<class UUserWidget> CharacterHUDClass;
 
 	UPROPERTY(EditAnywhere, Category = "UI")
-	TSubclassOf<class UUserWidget> ScoreBoardItemClass;
+	TSubclassOf<class UUserWidget> ScoreBoardClass;
 	
+	UPROPERTY(EditAnywhere, Category = "UI")
+	TSubclassOf<class UUserWidget> ScoreBoardItemClass;
+
+	UPROPERTY(EditAnywhere, Category = "UI")
+	TSubclassOf<class UUserWidget> GameMenuClass;
+
+
 private:
 	
 	UUserWidget* CharacterHUD;
+	UUserWidget* ScoreBoard;
+	UUserWidget* GameMenu;
+	
 	//
 	// UUserWidget* ScoreBoardItem;
+
+	bool bScoreBoardVisible = false;
+	bool bGameMenuVisible = false;
+
+
+	TArray<FDeathMessage>DeathMessages;
 };

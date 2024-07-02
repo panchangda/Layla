@@ -1,6 +1,4 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "LaylaHUD.h"
 
 #include "LaylaGun.h"
@@ -8,9 +6,10 @@
 #include "Blueprint/WidgetTree.h"
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
+
 #include "GameType/FreeForAll/LaylaGameState_FreeForAll.h"
-#include "GameType/FreeForAll/LaylaPlayerState_FreeForAll.h"
 #include "Player/LaylaCharacter.h"
+#include "Player/LaylaPlayerState.h"
 
 ALaylaHUD::ALaylaHUD()
 {
@@ -28,7 +27,16 @@ void ALaylaHUD::DrawHUD()
 
 	DrawRemainingTime();
 	DrawGamePhase();
-	DrawScoreBoard();
+
+	if(bScoreBoardVisible)
+	{
+		DrawScoreBoard();
+	}
+
+	if(bGameMenuVisible)
+	{
+		DrawGameMenu();
+	}
 }
 
 void ALaylaHUD::BeginPlay()
@@ -41,6 +49,32 @@ void ALaylaHUD::BeginPlay()
 		if (CharacterHUD)
 		{
 			CharacterHUD->AddToViewport();
+		}
+	}
+	if(ScoreBoardClass)
+	{
+		ScoreBoard = CreateWidget<UUserWidget>(GetWorld(), ScoreBoardClass);
+		if(ScoreBoard)
+		{
+			ScoreBoard->AddToViewport();
+			ScoreBoard->SetVisibility(ESlateVisibility::Collapsed);
+
+			// Hide Template Child in ScoreBoard
+			UVerticalBox* ScoreBoardItemContainerVBox = Cast<UVerticalBox>(
+				ScoreBoard->WidgetTree->FindWidget("VerticalBox_ScoreBoardItemContainer"));
+			if (ScoreBoardItemContainerVBox)
+			{
+				ScoreBoardItemContainerVBox->ClearChildren();
+			}
+		}
+	}
+	if(GameMenuClass)
+	{
+		GameMenu = CreateWidget<UUserWidget>(GetWorld(), GameMenuClass);
+		if (GameMenu)
+		{
+			GameMenu->AddToViewport();
+			GameMenu->SetVisibility(ESlateVisibility::Collapsed);
 		}
 	}
 }
@@ -118,12 +152,12 @@ void ALaylaHUD::DrawGamePhase()
 void ALaylaHUD::DrawScoreBoard()
 {
 	ALaylaGameState_FreeForAll* GameState_FreeForAll = Cast<ALaylaGameState_FreeForAll>(GetWorld()->GetGameState());
-	if(CharacterHUD && GameState_FreeForAll)
+	if(ScoreBoard && GameState_FreeForAll)
 	{
-		UVerticalBox* ScoreBoardVBox = Cast<UVerticalBox>(CharacterHUD->WidgetTree->FindWidget("VerticalBox_ScoreBoard"));
-		if(ScoreBoardVBox)
+		UVerticalBox* ScoreBoardItemContainerVBox = Cast<UVerticalBox>(ScoreBoard->WidgetTree->FindWidget("VerticalBox_ScoreBoardItemContainer"));
+		if(ScoreBoardItemContainerVBox)
 		{
-			ScoreBoardVBox->ClearChildren();
+			ScoreBoardItemContainerVBox->ClearChildren();
 			RankedPlayerMap InRankPlayerMap;
 			GameState_FreeForAll->GetRankedMap(InRankPlayerMap);
 			for(auto Player: InRankPlayerMap)
@@ -142,14 +176,90 @@ void ALaylaHUD::DrawScoreBoard()
 					Death->SetText(FText::AsNumber(Player.Value->GetDeath()));
 					Score->SetText(FText::AsNumber(Player.Value->GetScore()));
 					Ping->SetText(FText::AsNumber(Player.Value->GetPingInMilliseconds()));
-					ScoreBoardVBox->AddChildToVerticalBox(PlayerItem);
+					ScoreBoardItemContainerVBox->AddChildToVerticalBox(PlayerItem);
 				}
 			}
 		}
 	}
 }
 
+void ALaylaHUD::DrawHitIndicator()
+{
+	
+}
+
+void ALaylaHUD::ShowDeathMessage(ALaylaPlayerState* KillerPlayerState,
+	ALaylaPlayerState* VictimPlayerState, const UDamageType* KillerDamageType)
+{
+	const int32 MaxDeathMessages = 5;
+	const float MessageDuration = 10.0f;
+	if(GetWorld()->GetGameState())
+	{
+		ALaylaPlayerState* MyPlayerState = PlayerOwner ? Cast<ALaylaPlayerState>(PlayerOwner->PlayerState) : nullptr;
+
+		if(KillerPlayerState && VictimPlayerState && MyPlayerState && KillerDamageType)
+		{
+			if(DeathMessages.Num() >= MaxDeathMessages)
+			{
+				DeathMessages.RemoveAt(0, 1, false);
+			}
+			FDeathMessage NewMessage;
+			NewMessage.KillerDesc = KillerPlayerState->GetShortPlayerName();
+			NewMessage.VictimDesc = VictimPlayerState->GetShortPlayerName();
+			// NewMessage.KillerTeamNum = KillerPlayerState->GetTeamNum();
+			// NewMessage.VictimTeamNum = VictimPlayerState->GetTeamNum();
+			NewMessage.bKillerIsOwner = MyPlayerState == KillerPlayerState;
+			NewMessage.bVictimIsOwner = MyPlayerState == VictimPlayerState;
+
+			NewMessage.DamageType = MakeWeakObjectPtr(const_cast<UDamageType*>(Cast<const UDamageType>(KillerDamageType)));
+			NewMessage.HideTime = GetWorld()->GetTimeSeconds() + MessageDuration;
+
+			DeathMessages.Add(NewMessage);
+			if (KillerPlayerState == MyPlayerState && VictimPlayerState != MyPlayerState)
+			{
+				// LastKillTime = GetWorld()->GetTimeSeconds();
+				// CenteredKillMessage = FText::FromString(NewMessage.VictimDesc);
+			}
+		}
+	}
+
+
+}
+
 void ALaylaHUD::DrawGameMenu()
 {
 
 }
+
+void ALaylaHUD::ShowScoreBoard()
+{
+	bScoreBoardVisible = true;
+	if(ScoreBoard)
+	{
+		ScoreBoard->SetVisibility(ESlateVisibility::Visible);
+	}
+}
+
+void ALaylaHUD::HideScoreBoard()
+{
+	bScoreBoardVisible = false;
+	if(ScoreBoard)
+	{
+		ScoreBoard->SetVisibility(ESlateVisibility::Collapsed);
+	}
+}
+
+void ALaylaHUD::ToggleGameMenuVisibility()
+{
+	bGameMenuVisible = !bGameMenuVisible;
+	if(GameMenu){
+		if(bGameMenuVisible == true)
+		{
+			GameMenu->SetVisibility(ESlateVisibility::Visible);
+		}else
+		{
+			GameMenu->SetVisibility(ESlateVisibility::Collapsed);
+		}
+	}
+}
+

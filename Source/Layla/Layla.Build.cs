@@ -22,7 +22,8 @@ public class Layla : ModuleRules
 			"SlateCore",
 			"OnlineSubsystem",
 			"OnlineSubsystemUtils",
-			"PhysicsCore"
+			"PhysicsCore",
+			"NetCore"
 		});
 	}
 }

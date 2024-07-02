@@ -3,7 +3,7 @@
 
 #include "LaylaGameState_FreeForAll.h"
 
-#include "LaylaPlayerState_FreeForAll.h"
+#include "Player/LaylaPlayerState.h"
 #include "Net/UnrealNetwork.h"
 
 void ALaylaGameState_FreeForAll::GetRankedMap(RankedPlayerMap& OutRankedMap) const
@@ -11,11 +11,11 @@ void ALaylaGameState_FreeForAll::GetRankedMap(RankedPlayerMap& OutRankedMap) con
 	OutRankedMap.Empty();
 
 	//first, we need to go over all the PlayerStates, grab their score, and rank them
-	TMultiMap<int32, ALaylaPlayerState_FreeForAll*> SortedMap;
+	TMultiMap<int32, ALaylaPlayerState*> SortedMap;
 	for(int32 i = 0; i < PlayerArray.Num(); ++i)
 	{
 		int32 Score = 0;
-		ALaylaPlayerState_FreeForAll* CurPlayerState = Cast<ALaylaPlayerState_FreeForAll>(PlayerArray[i]);
+		ALaylaPlayerState* CurPlayerState = Cast<ALaylaPlayerState>(PlayerArray[i]);
 		if (CurPlayerState)
 		{
 			SortedMap.Add(FMath::TruncToInt(CurPlayerState->GetScore()), CurPlayerState);
@@ -29,7 +29,7 @@ void ALaylaGameState_FreeForAll::GetRankedMap(RankedPlayerMap& OutRankedMap) con
 	OutRankedMap.Empty();
 
 	int32 Rank = 0;
-	for(TMultiMap<int32, ALaylaPlayerState_FreeForAll*>::TIterator It(SortedMap); It; ++It)
+	for(TMultiMap<int32, ALaylaPlayerState*>::TIterator It(SortedMap); It; ++It)
 	{
 		OutRankedMap.Add(Rank++, It.Value());
 	}

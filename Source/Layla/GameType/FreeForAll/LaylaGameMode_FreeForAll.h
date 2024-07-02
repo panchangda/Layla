@@ -34,6 +34,17 @@ public:
 
 	/** select best spawn point for player */
 	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
+
+	/** check who won */
+	virtual void DetermineMatchWinner();
+
+	/** check if PlayerState is a winner */
+	virtual bool IsWinner(class ALaylaPlayerState* PlayerState) const ;
+
+	/** best player */
+	UPROPERTY(transient)
+	class ALaylaPlayerState* WinnerPlayerState;
+
 	
 protected:
 	virtual void BeginPlay() override;
@@ -45,7 +56,7 @@ protected:
 	/** match duration */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 RoundTime;
-    	
+	
 	/** score for kill */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 KillScore;

@@ -6,6 +6,8 @@
 #include "AbilitySystemInterface.h"
 #include "GameplayTagContainer.h"
 #include "InputActionValue.h"
+#include "LaylaTakeHitInfo.h"
+#include "Engine/DamageEvents.h"
 #include "GameFramework/Character.h"
 #include "Logging/LogMacros.h"
 #include "LaylaCharacter.generated.h"
@@ -22,6 +24,11 @@ struct FInputActionValue;
 class ULaylaAbilitySystem;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
+
+
+
+
+
 
 UCLASS(config=Game)
 class ALaylaCharacter : public ACharacter, public IAbilitySystemInterface
@@ -47,8 +54,19 @@ public:
 
 
 
+	/** animation played on death */
+	UPROPERTY(EditDefaultsOnly, Category = Animation)
+	UAnimMontage* DeathAnim_Front;
+	UPROPERTY(EditDefaultsOnly, Category = Animation)
+	UAnimMontage* DeathAnim_Back;
+	UPROPERTY(EditDefaultsOnly, Category = Animation)
+	UAnimMontage* DeathAnim_Left;
+	UPROPERTY(EditDefaultsOnly, Category = Animation)
+	UAnimMontage* DeathAnim_Right;
 	
-
+	/** switch to ragdoll */
+	void SetRagdollPhysics();
+	
 
 	// Chracter Infos: BP Helper Functions
 	UFUNCTION(BlueprintCallable)
@@ -167,7 +185,9 @@ public:
 	/** 当前生命值的取值函数。*/
 	UFUNCTION(BlueprintPure, Category="Health")
 	FORCEINLINE float GetCurrentHealth() const { return CurrentHealth; }
- 
+
+	virtual void PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker) override;
+	
 	/** 当前生命值的存值函数。将此值的范围限定在0到MaxHealth之间，并调用OnHealthUpdate。仅在服务器上调用。*/
 	UFUNCTION(BlueprintCallable, Category="Health")
 	void SetCurrentHealth(float healthValue);
@@ -176,6 +196,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Health")
 	virtual float TakeDamage( float DamageTaken, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser ) override;
 
+	/** Identifies if pawn is in its dying state */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Health)
+	bool bIsDying = false;
 
 	/** Pawn suicide */
 	virtual void Suicide();
@@ -199,7 +222,30 @@ public:
 	// Die when we fall out of the world.
 	virtual void FellOutOfWorld(const class UDamageType& dmgType) override;
 
+	/** play effects on hit */
+	virtual void PlayHit(float DamageTaken, struct FDamageEvent const& DamageEvent, class APawn* PawnInstigator, class AActor* DamageCauser);
 
+	/** notification when killed, for both the server and client. */
+	virtual void OnDeath(float KillingDamage, struct FDamageEvent const& DamageEvent, class APawn* InstigatingPawn, class AActor* DamageCauser);
+
+
+	// Hit Info Replications
+	/** Replicate where this pawn was last hit and damaged */
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_LastTakeHitInfo)
+	struct FTakeHitInfo LastTakeHitInfo;
+
+	/** Time at which point the last take hit info for the actor times out and won't be replicated; Used to stop join-in-progress effects all over the screen */
+	float LastTakeHitTimeTimeout;
+	
+	/** sets up the replication for taking a hit */
+	void ReplicateHit(float Damage, struct FDamageEvent const& DamageEvent, class APawn* InstigatingPawn, class AActor* DamageCauser, bool bKilled);
+
+	/** play hit or death on client */
+	UFUNCTION()
+	void OnRep_LastTakeHitInfo();
+
+	/** stop playing all montages */
+	void StopAllAnimMontages();
 
 	/* Guns */
 	UPROPERTY(Transient, Replicated, VisibleAnywhere, BlueprintReadOnly)

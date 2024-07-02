@@ -5,8 +5,8 @@
 
 #include "EngineUtils.h"
 #include "LaylaGameState_FreeForAll.h"
-#include "LaylaPlayerState_FreeForAll.h"
 #include "GameFramework/PlayerStart.h"
+#include "Player/LaylaPlayerState.h"
 #include "UI/LaylaHUD.h"
 
 
@@ -57,8 +57,10 @@ ALaylaGameMode_FreeForAll::ALaylaGameMode_FreeForAll()
 	}
 
 	HUDClass = ALaylaHUD::StaticClass();
-	PlayerStateClass = ALaylaPlayerState_FreeForAll::StaticClass();
+	PlayerStateClass = ALaylaPlayerState::StaticClass();
 	GameStateClass = ALaylaGameState_FreeForAll::StaticClass();
+
+	MinRespawnDelay = 1.5f;
 }
 
 void ALaylaGameMode_FreeForAll::PreInitializeComponents()
@@ -73,8 +75,8 @@ void ALaylaGameMode_FreeForAll::PreInitializeComponents()
 void ALaylaGameMode_FreeForAll::Killed(AController* Killer, AController* KilledPlayer, APawn* KilledPawn,
 	const UDamageType* DamageType)
 {
-	ALaylaPlayerState_FreeForAll* KillerPlayerState = Killer ? Cast<ALaylaPlayerState_FreeForAll>(Killer->PlayerState) : NULL;
-	ALaylaPlayerState_FreeForAll* VictimPlayerState = KilledPlayer ? Cast<ALaylaPlayerState_FreeForAll>(KilledPlayer->PlayerState) : NULL;
+	ALaylaPlayerState* KillerPlayerState = Killer ? Cast<ALaylaPlayerState>(Killer->PlayerState) : NULL;
+	ALaylaPlayerState* VictimPlayerState = KilledPlayer ? Cast<ALaylaPlayerState>(KilledPlayer->PlayerState) : NULL;
 
 	if (KillerPlayerState && KillerPlayerState != VictimPlayerState)
 	{
@@ -99,6 +101,36 @@ AActor* ALaylaGameMode_FreeForAll::ChoosePlayerStart_Implementation(AController*
 
 	// 默认行为
 	return Super::ChoosePlayerStart_Implementation(Player);
+}
+
+void ALaylaGameMode_FreeForAll::DetermineMatchWinner()
+{
+	ALaylaGameState_FreeForAll const* const MyGameState = CastChecked<ALaylaGameState_FreeForAll>(GameState);
+	float BestScore = MIN_flt;
+	int32 BestPlayer = -1;
+	int32 NumBestPlayers = 0;
+
+	for (int32 i = 0; i < MyGameState->PlayerArray.Num(); i++)
+	{
+		const float PlayerScore = MyGameState->PlayerArray[i]->GetScore();
+		if (BestScore < PlayerScore)
+		{
+			BestScore = PlayerScore;
+			BestPlayer = i;
+			NumBestPlayers = 1;
+		}
+		else if (BestScore == PlayerScore)
+		{
+			NumBestPlayers++;
+		}
+	}
+
+	WinnerPlayerState = (NumBestPlayers == 1) ? Cast<ALaylaPlayerState>(MyGameState->PlayerArray[BestPlayer]) : NULL;
+}
+
+bool ALaylaGameMode_FreeForAll::IsWinner(ALaylaPlayerState* PlayerState) const
+{
+	return PlayerState && PlayerState == WinnerPlayerState; // && !PlayerState->IsQuitter();
 }
 
 void ALaylaGameMode_FreeForAll::BeginPlay()
