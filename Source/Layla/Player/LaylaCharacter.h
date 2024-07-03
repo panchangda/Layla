@@ -25,11 +25,6 @@ class ULaylaAbilitySystem;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
 
-
-
-
-
-
 UCLASS(config=Game)
 class ALaylaCharacter : public ACharacter, public IAbilitySystemInterface
 {
@@ -247,6 +242,17 @@ public:
 	/** stop playing all montages */
 	void StopAllAnimMontages();
 
+	/* Inventory */
+	// UPROPERTY(Transient, Replicated, VisibleAnywhere, BlueprintReadOnly)
+	// TArray<class ALaylaInventoryItem*> InventoryList;
+	//
+	// UPROPERTY(Server, Reliable, WithValidation)
+	// void AddInventoryItem(ALaylaInventoryItem* Item);
+	//
+	// UPROPERTY(Server, Reliable, WithValidation)
+	// void RemoveInventoryItem(ALaylaInventoryItem* Item);
+
+	
 	/* Guns */
 	UPROPERTY(Transient, Replicated, VisibleAnywhere, BlueprintReadOnly)
 	TArray<class ALaylaGun*> GunList;
@@ -333,7 +339,10 @@ protected:
 	
 	void StartADS(const FInputActionValue& Value);
 	void StopADS(const FInputActionValue& Value);
- 
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerSetWalkMaxSpeed(const float& Speed);
+	
 	// AnimInstance's GameplayTagPropertyMap only register delegate with ContainerMap(not replicated)
 	// Native Function AddOrRemove Replicated GameTag is not working, so we have to make it NetMultiCast RPC manually
 	UFUNCTION(Server, Reliable, WithValidation)

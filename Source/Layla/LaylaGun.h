@@ -10,6 +10,7 @@
 
 class ALaylaCharacter;
 class UWidgetComponent;
+class USoundCue;
 
 namespace EWeaponState
 {

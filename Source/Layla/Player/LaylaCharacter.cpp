@@ -10,17 +10,13 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
-#include "LaylaGameMode.h"
 #include "VectorTypes.h"
-#include "Naive/LaylaPickup.h"
 #include "AbilitySystem/LaylaAbilitySystem.h"
 #include "Engine/DamageEvents.h"
 #include "GameType/FreeForAll/LaylaGameMode_FreeForAll.h"
+#include "Inventory/LaylaInventoryItem.h"
 #include "Layla/LaylaGun.h"
 #include "Net/UnrealNetwork.h"
-
-
-#include "UObject/FastReferenceCollector.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
@@ -189,7 +185,6 @@ void ALaylaCharacter::BeginPlay()
 void ALaylaCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
-
 	// Update Came Info
 	CameraLocation = FollowCamera->GetComponentLocation();;
 	// CameraRotation = GetController()->GetControlRotation(); Error when multi player???
@@ -201,13 +196,13 @@ void ALaylaCharacter::Tick(float DeltaSeconds)
 	{
 		AActor* HitActor = HitResult.GetActor();
 		// 检查是否是我们感兴趣的目标类型
-		if (HitActor->IsA(ALaylaPickup::StaticClass()))
+		if (HitActor->IsA(ALaylaInventoryItem::StaticClass()))
 		{
 			// 显示UI
-			ALaylaPickup* PickupActor = Cast<ALaylaPickup>(HitActor);
+			ALaylaInventoryItem* PickupActor = Cast<ALaylaInventoryItem>(HitActor);
 			if(PickupActor && UE::Geometry::Distance(PickupActor->GetActorLocation(), GetActorLocation()) < 300.0f)
 			{
-				PickupActor->bIsBeingInspected = true;
+				// PickupActor->OnFocus();
 			}
 		}else if(HitActor->IsA(ALaylaGun::StaticClass()))
 		{
@@ -605,8 +600,10 @@ void ALaylaCharacter::DropGun(const FInputActionValue& Value)
 void ALaylaCharacter::StartADS(const FInputActionValue& Value)	
 {
 	// FGameplayTag ADSTag = FGameplayTag::RequestGameplayTag(FName("Event.Movement.ADS"));
-	
+
 	GetCharacterMovement()->MaxWalkSpeed = 300.0f;
+	ServerSetWalkMaxSpeed(300.0f);	
+
 	ServerAddTag(FName("Event.Movement.ADS"));
 	
 	// AnimInstance's GameplayTagPropertyMap Only Register NewOrRemove Delegate, no need to toggle count
@@ -622,8 +619,20 @@ void ALaylaCharacter::StopADS(const FInputActionValue& Value)
 	// FGameplayTag ADSTag = FGameplayTag::RequestGameplayTag(FName("Event.Movement.ADS"));
 	// AbilitySystemComponent->RemoveLooseGameplayTag(ADSTag);
 
-	GetCharacterMovement()->MaxWalkSpeed = 500.0f;
+	GetCharacterMovement()->MaxWalkSpeed = 600.0f;
+	ServerSetWalkMaxSpeed(600.0f);
+	
 	ServerRemoveTag(FName("Event.Movement.ADS"));
+}
+
+void ALaylaCharacter::ServerSetWalkMaxSpeed_Implementation(const float& Speed)
+{
+	GetCharacterMovement()->MaxWalkSpeed = Speed;
+}
+
+bool ALaylaCharacter::ServerSetWalkMaxSpeed_Validate(const float& Speed)
+{
+	return Speed > 0 && Speed < 1000;
 }
 
 void ALaylaCharacter::ServerRemoveTag_Implementation(const FName& TagName)
@@ -699,6 +708,9 @@ void ALaylaCharacter::Interact(const FInputActionValue& Value)
 		{
 			ALaylaGun* GunActor = Cast<ALaylaGun>(HitActor);
 			PickGun(GunActor);
+		}else if(HitActor->IsA(ALaylaInventoryItem::StaticClass()))
+		{
+			
 		}
 	}
 	
@@ -1095,7 +1107,6 @@ void ALaylaCharacter::StopAllAnimMontages()
 		UseMesh->AnimScriptInstance->Montage_Stop(0.0f);
 	}
 }
-
 
 void ALaylaCharacter::OnRep_CurrentHealth()
 {

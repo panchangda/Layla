@@ -69,6 +69,7 @@ public:
 	void DrawHitIndicator();
 	void ShowDeathMessage(ALaylaPlayerState* KillerPlayerState,
 	ALaylaPlayerState* KilledPlayerState, const UDamageType* KillerDamageType);
+	void DrawDeathMessages();
 	
 	// Menus
 	void DrawGameMenu();
@@ -93,13 +94,21 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "UI")
 	TSubclassOf<class UUserWidget> GameMenuClass;
 
-
+	UPROPERTY(EditAnywhere, Category = "UI")
+	TSubclassOf<class UUserWidget> DeathMessageItemClass;
+	
+	UPROPERTY(EditAnywhere, Category = "UI")
+	TSubclassOf<class UUserWidget> InventoryClass;
+	
 private:
 	
 	UUserWidget* CharacterHUD;
-	UUserWidget* ScoreBoard;
-	UUserWidget* GameMenu;
 	
+	UUserWidget* ScoreBoard;
+	
+	UUserWidget* GameMenu;
+
+	UUserWidget* Inventory;
 	//
 	// UUserWidget* ScoreBoardItem;
 

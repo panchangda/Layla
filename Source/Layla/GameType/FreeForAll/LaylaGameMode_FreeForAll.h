@@ -56,7 +56,10 @@ protected:
 	/** match duration */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 RoundTime;
-	
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 TimeBetweenMatches;
+
 	/** score for kill */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 KillScore;

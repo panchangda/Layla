@@ -101,7 +101,6 @@ void ALaylaPlayerController::ToggleGameMenuVisibility()
 	ALaylaHUD* LaylaHUD = GetLaylaHUD();
 	if(LaylaHUD)
 	{
-		bShowMouseCursor = true;
 		LaylaHUD->ToggleGameMenuVisibility();
 	}
 }

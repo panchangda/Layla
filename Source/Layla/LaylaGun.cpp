@@ -695,13 +695,13 @@ void ALaylaGun::LinkPawnToAnimSet(TSubclassOf<UAnimInstance> AnimSetToLink, APaw
 UAudioComponent* ALaylaGun::PlayWeaponSound(USoundCue* Sound)
 {
 	return nullptr;
-	UAudioComponent* AC = NULL;
-	if (Sound && OwnerPawn)
-	{
-		AC = UGameplayStatics::SpawnSoundAttached(Sound, OwnerPawn->GetRootComponent());
-	}
-
-	return AC;
+	// UAudioComponent* AC = NULL;
+	// if (Sound && OwnerPawn)
+	// {
+	// 	AC = UGameplayStatics::SpawnSoundAttached(Sound, OwnerPawn->GetRootComponent());
+	// }
+	//
+	// return AC;
 }
 
 // Called when the game starts or when spawned

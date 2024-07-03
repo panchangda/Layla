@@ -37,6 +37,8 @@ void ALaylaHUD::DrawHUD()
 	{
 		DrawGameMenu();
 	}
+
+	DrawDeathMessages();
 }
 
 void ALaylaHUD::BeginPlay()
@@ -152,15 +154,17 @@ void ALaylaHUD::DrawGamePhase()
 void ALaylaHUD::DrawScoreBoard()
 {
 	ALaylaGameState_FreeForAll* GameState_FreeForAll = Cast<ALaylaGameState_FreeForAll>(GetWorld()->GetGameState());
-	if(ScoreBoard && GameState_FreeForAll)
+
+	if (ScoreBoard && GameState_FreeForAll && ScoreBoardItemClass)
 	{
-		UVerticalBox* ScoreBoardItemContainerVBox = Cast<UVerticalBox>(ScoreBoard->WidgetTree->FindWidget("VerticalBox_ScoreBoardItemContainer"));
-		if(ScoreBoardItemContainerVBox)
+		UVerticalBox* ScoreBoardItemContainerVBox = Cast<UVerticalBox>(
+			ScoreBoard->WidgetTree->FindWidget("VerticalBox_ScoreBoardItemContainer"));
+		if (ScoreBoardItemContainerVBox)
 		{
 			ScoreBoardItemContainerVBox->ClearChildren();
 			RankedPlayerMap InRankPlayerMap;
 			GameState_FreeForAll->GetRankedMap(InRankPlayerMap);
-			for(auto Player: InRankPlayerMap)
+			for (auto Player : InRankPlayerMap)
 			{
 				// 例如，你可以在这里添加其他Widget
 				UUserWidget* PlayerItem = CreateWidget<UUserWidget>(GetWorld(), ScoreBoardItemClass);
@@ -191,7 +195,7 @@ void ALaylaHUD::DrawHitIndicator()
 void ALaylaHUD::ShowDeathMessage(ALaylaPlayerState* KillerPlayerState,
 	ALaylaPlayerState* VictimPlayerState, const UDamageType* KillerDamageType)
 {
-	const int32 MaxDeathMessages = 5;
+	const int32 MaxDeathMessages = 4;
 	const float MessageDuration = 10.0f;
 	if(GetWorld()->GetGameState())
 	{
@@ -226,6 +230,38 @@ void ALaylaHUD::ShowDeathMessage(ALaylaPlayerState* KillerPlayerState,
 
 }
 
+void ALaylaHUD::DrawDeathMessages()
+{
+	UVerticalBox* VBox_DeathMessages = nullptr;
+	if (CharacterHUD)
+	{
+		 VBox_DeathMessages = Cast<UVerticalBox>(
+			CharacterHUD->WidgetTree->FindWidget("VerticalBox_DeathMessages"));
+	}
+	if(VBox_DeathMessages && DeathMessageItemClass)
+	{
+		VBox_DeathMessages->ClearChildren();
+		float CurrTime = GetWorld()->GetTimeSeconds();
+		for(int32 i = 0; i < DeathMessages.Num();i++)
+		{
+			if(DeathMessages[i].HideTime >= CurrTime)
+			{
+				UUserWidget* MessageItem = CreateWidget<UUserWidget>(GetWorld(), DeathMessageItemClass);
+				if (MessageItem)
+				{
+					UTextBlock* Killer = Cast<UTextBlock>(MessageItem->WidgetTree->FindWidget("TextBlock_Killer"));
+					UTextBlock* Weapon = Cast<UTextBlock>(MessageItem->WidgetTree->FindWidget("TextBlock_Weapon"));
+					UTextBlock* Victim = Cast<UTextBlock>(MessageItem->WidgetTree->FindWidget("TextBlock_Victim"));
+					Killer->SetText(FText::FromString(DeathMessages[i].KillerDesc));
+					Weapon->SetText(FText::FromString(DeathMessages[i].DamageType->GetName()));
+					Victim->SetText(FText::FromString(DeathMessages[i].VictimDesc));
+					VBox_DeathMessages->AddChildToVerticalBox(MessageItem);
+				}
+			}
+		}
+	}
+}
+
 void ALaylaHUD::DrawGameMenu()
 {
 
@@ -251,13 +287,16 @@ void ALaylaHUD::HideScoreBoard()
 
 void ALaylaHUD::ToggleGameMenuVisibility()
 {
+	APlayerController* OwnerPC = GetOwningPlayerController();
 	bGameMenuVisible = !bGameMenuVisible;
-	if(GameMenu){
+	if(GameMenu && OwnerPC){
 		if(bGameMenuVisible == true)
 		{
+			OwnerPC->bShowMouseCursor = true;
 			GameMenu->SetVisibility(ESlateVisibility::Visible);
 		}else
 		{
+			OwnerPC->bShowMouseCursor = false;
 			GameMenu->SetVisibility(ESlateVisibility::Collapsed);
 		}
 	}

@@ -33,7 +33,6 @@ void ALaylaGameMode_FreeForAll::HandleMatchIsWaitingToStart()
 			}
 		}
 	}
-
 }
 
 void ALaylaGameMode_FreeForAll::HandleMatchHasStarted()
@@ -150,13 +149,30 @@ void ALaylaGameMode_FreeForAll::FinishMatch()
 	if (IsMatchInProgress())
 	{
 		EndMatch();
+		DetermineMatchWinner();
+
+		// notify players
+		for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
+		{
+			ALaylaPlayerState* PlayerState = Cast<ALaylaPlayerState>((*It)->PlayerState);
+			const bool bIsWinner = IsWinner(PlayerState);
+
+			(*It)->GameHasEnded(NULL, bIsWinner);
+			
+		}
 		
 		GameState_FreeForAll->GamePhase = EGamePhase_FreeForAll::GameOver;
 
+		// lock all pawns
+		// pawns are not marked as keep for seamless travel, so we will create new pawns on the next match rather than
+		// turning these back on.
 		for (APawn* Pawn : TActorRange<APawn>(GetWorld()))
 		{
 			Pawn->TurnOff();
 		}
+
+		// set up to restart the match
+		GameState_FreeForAll->RemainingTime = TimeBetweenMatches;
 		
 	}
 	
@@ -165,6 +181,17 @@ void ALaylaGameMode_FreeForAll::FinishMatch()
 
 void ALaylaGameMode_FreeForAll::DefaultTimer()
 {
+	// don't update timers for Play In Editor mode, it's not real match
+	// if (GetWorld()->IsPlayInEditor())
+	// {
+	// 	// start match if necessary.
+	// 	if (GetMatchState() == MatchState::WaitingToStart)
+	// 	{
+	// 		StartMatch();
+	// 	}
+	// 	return;
+	// }
+	
 	ALaylaGameState_FreeForAll* const MyGameState = Cast<ALaylaGameState_FreeForAll>(GameState);
 	if (MyGameState && MyGameState->RemainingTime > 0 && !MyGameState->bTimerPaused)
 	{

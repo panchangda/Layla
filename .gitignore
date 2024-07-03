@@ -44,6 +44,7 @@ DerivedDataCache/
 *.nvcloth
 
 # Ignore all .uplugin and .uproject files
+*.uproject
 
 # Ignore all .sln and .suo files
 *.sln
