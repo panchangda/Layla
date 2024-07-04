@@ -31,7 +31,14 @@ public:
 
 	/** notify local client about deaths */
 	void OnDeathMessage(class ALaylaPlayerState* KillerPlayerState, class ALaylaPlayerState* KilledPlayerState, const UDamageType* KillerDamageType);
+
+	/** notify player about started match */
+	UFUNCTION(reliable, client)
+	void ClientGameStarted();
 	
+	/** Notifies clients to send the end-of-round event */
+	UFUNCTION(reliable, client)
+	void ClientSendRoundEndEvent(bool bIsWinner, int32 ExpendedTimeInSeconds);
 
 	/** respawn after dying */
 	virtual void UnFreeze() override;
@@ -46,6 +53,7 @@ public:
 	
 	virtual void SetupInputComponent() override;
 
+	virtual void GameHasEnded(class AActor* EndGameFocus = nullptr, bool bIsWinner = false) override;
 	
 	class ALaylaHUD* GetLaylaHUD();
 	

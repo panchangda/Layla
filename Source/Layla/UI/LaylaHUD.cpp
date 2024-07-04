@@ -1,15 +1,18 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 #include "LaylaHUD.h"
 
-#include "LaylaGun.h"
+#include "Weapon/LaylaGun.h"
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetTree.h"
+#include "Components/Border.h"
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
 
 #include "GameType/FreeForAll/LaylaGameState_FreeForAll.h"
 #include "Player/LaylaCharacter.h"
 #include "Player/LaylaPlayerState.h"
+
+class UBorder;
 
 ALaylaHUD::ALaylaHUD()
 {
@@ -39,6 +42,7 @@ void ALaylaHUD::DrawHUD()
 	}
 
 	DrawDeathMessages();
+	
 }
 
 void ALaylaHUD::BeginPlay()
@@ -223,6 +227,13 @@ void ALaylaHUD::ShowDeathMessage(ALaylaPlayerState* KillerPlayerState,
 			{
 				// LastKillTime = GetWorld()->GetTimeSeconds();
 				// CenteredKillMessage = FText::FromString(NewMessage.VictimDesc);
+				KillOrKilledMessage = FString::Printf(TEXT("You Killed %s, Using %s"), *VictimPlayerState->GetShortPlayerName(), "Gun");
+				ShowKillOrKilled();
+				
+			}else if(KillerPlayerState != MyPlayerState && VictimPlayerState == MyPlayerState)
+			{
+				KillOrKilledMessage = FString::Printf(TEXT("You were Killed by %s's %s"), *KillerPlayerState->GetShortPlayerName(), "Gun");
+				ShowKillOrKilled();
 			}
 		}
 	}
@@ -258,6 +269,18 @@ void ALaylaHUD::DrawDeathMessages()
 					VBox_DeathMessages->AddChildToVerticalBox(MessageItem);
 				}
 			}
+		}
+	}
+}
+
+void ALaylaHUD::DrawKillOrKilled()
+{
+	if(CharacterHUD)
+	{
+		UTextBlock* KillOrKilled = Cast<UTextBlock>(CharacterHUD->WidgetTree->FindWidget("TextBlock_KillOrKilled"));
+		if(KillOrKilled)
+		{
+			KillOrKilled->SetText(FText::FromString(KillOrKilledMessage));
 		}
 	}
 }
@@ -298,6 +321,81 @@ void ALaylaHUD::ToggleGameMenuVisibility()
 		{
 			OwnerPC->bShowMouseCursor = false;
 			GameMenu->SetVisibility(ESlateVisibility::Collapsed);
+		}
+	}
+}
+
+void ALaylaHUD::ToggleWinVisibility(bool bVisible)
+{
+	if(CharacterHUD)
+	{
+		UBorder* WinBorder = Cast<UBorder>(CharacterHUD->WidgetTree->FindWidget("Border_Win"));
+		if(WinBorder){
+
+			if(bVisible)
+			{
+				WinBorder->SetVisibility(ESlateVisibility::Visible);
+			}else
+			{
+				WinBorder->SetVisibility(ESlateVisibility::Collapsed);
+			}
+		}
+	}
+}
+
+void ALaylaHUD::ToggleLoseVisibility(bool bVisible)
+{
+	if(CharacterHUD)
+	{
+		UBorder* WinBorder = Cast<UBorder>(CharacterHUD->WidgetTree->FindWidget("Border_Lose"));
+		if(WinBorder){
+
+			if(bVisible)
+			{
+				WinBorder->SetVisibility(ESlateVisibility::Visible);
+			}else
+			{
+				WinBorder->SetVisibility(ESlateVisibility::Collapsed);
+			}
+		}
+	}
+}
+
+void ALaylaHUD::ShowKillOrKilled()
+{
+	bKillOrKilledVisible = true;
+	const int KillOrKilledMessageDuration = 3.0f;
+	GetWorldTimerManager().SetTimer(TimerHandle_KillOrKilled, this, &ALaylaHUD::HideKillOrKilled, KillOrKilledMessageDuration, false);
+
+	if(CharacterHUD)
+	{
+		UTextBlock* KillOrKilled = Cast<UTextBlock>(CharacterHUD->WidgetTree->FindWidget("TextBlock_KillOrKilled"));
+		if(KillOrKilled)
+		{
+			KillOrKilled->SetText(FText::FromString(KillOrKilledMessage));
+		}
+
+		
+
+		UBorder* Border_KillOrKilled = Cast<UBorder>(CharacterHUD->WidgetTree->FindWidget("Border_KillOrKilled"));
+		if(Border_KillOrKilled)
+		{
+			Border_KillOrKilled->SetVisibility(ESlateVisibility::Visible);
+		}
+	}
+}
+
+void ALaylaHUD::HideKillOrKilled()
+{
+	bKillOrKilledVisible = false;
+
+	if(CharacterHUD)
+	{
+
+		UBorder* Border_KillOrKilled = Cast<UBorder>(CharacterHUD->WidgetTree->FindWidget("Border_KillOrKilled"));
+		if(Border_KillOrKilled)
+		{
+			Border_KillOrKilled->SetVisibility(ESlateVisibility::Hidden);
 		}
 	}
 }

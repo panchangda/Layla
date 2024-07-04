@@ -6,8 +6,11 @@
 #include "EngineUtils.h"
 #include "LaylaGameState_FreeForAll.h"
 #include "GameFramework/PlayerStart.h"
+#include "Player/LaylaCharacter.h"
+#include "Player/LaylaPlayerController.h"
 #include "Player/LaylaPlayerState.h"
 #include "UI/LaylaHUD.h"
+#include "Weapon/LaylaGun.h"
 
 
 void ALaylaGameMode_FreeForAll::HandleMatchIsWaitingToStart()
@@ -42,6 +45,16 @@ void ALaylaGameMode_FreeForAll::HandleMatchHasStarted()
 	ALaylaGameState_FreeForAll* const MyGameState = Cast<ALaylaGameState_FreeForAll>(GameState);
 	MyGameState->RemainingTime = RoundTime;
 	MyGameState->GamePhase = EGamePhase_FreeForAll::InGame;
+
+	// notify players
+	for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
+	{
+		ALaylaPlayerController* PC = Cast<ALaylaPlayerController>(*It);
+		if (PC)
+		{
+			PC->ClientGameStarted();
+		}
+	}
 }
 
 
@@ -49,7 +62,7 @@ ALaylaGameMode_FreeForAll::ALaylaGameMode_FreeForAll()
 {
 	
 	// set default pawn class to our Blueprinted character
-	static ConstructorHelpers::FClassFinder<APawn> PlayerPawnBPClass(TEXT("/Game/BP/BP_ThirdPersonCharacter"));
+	static ConstructorHelpers::FClassFinder<APawn> PlayerPawnBPClass(TEXT("/Game/BP/B_LaylaCharacter"));
 	if (PlayerPawnBPClass.Class != NULL)
 	{
 		DefaultPawnClass = PlayerPawnBPClass.Class;
@@ -206,24 +219,43 @@ void ALaylaGameMode_FreeForAll::DefaultTimer()
 			{
 				FinishMatch();
 
-				// Send end round events
-				// for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
-				// {
-				// 	AShooterPlayerController* PlayerController = Cast<AShooterPlayerController>(*It);
-				// 	
-				// 	if (PlayerController && MyGameState)
-				// 	{
-				// 		AShooterPlayerState* PlayerState = Cast<AShooterPlayerState>((*It)->PlayerState);
-				// 		const bool bIsWinner = IsWinner(PlayerState);
-				// 	
-				// 		PlayerController->ClientSendRoundEndEvent(bIsWinner, MyGameState->ElapsedTime);
-				// 	}
-				// }
+				//Send end round events
+				for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
+				{
+					ALaylaPlayerController* PlayerController = Cast<ALaylaPlayerController>(*It);
+					
+					if (PlayerController && MyGameState)
+					{
+						ALaylaPlayerState* PlayerState = Cast<ALaylaPlayerState>((*It)->PlayerState);
+						const bool bIsWinner = IsWinner(PlayerState);
+					
+						PlayerController->ClientSendRoundEndEvent(bIsWinner, MyGameState->ElapsedTime);
+					}
+				}
 			}
 			else if (GetMatchState() == MatchState::WaitingToStart)
 			{
 				StartMatch();
 			}
 		}
+	}
+}
+
+void ALaylaGameMode_FreeForAll::RestartPlayer(AController* NewPlayer)
+{
+	Super::RestartPlayer(NewPlayer);
+
+	ALaylaPlayerController* PC = Cast<ALaylaPlayerController>(NewPlayer);
+	if (PC)
+	{
+		// Since initial weapon is equipped before the pawn is added to the replication graph, need to resend the notify so that it can be added as a dependent actor
+		ALaylaCharacter* Character = Cast<ALaylaCharacter>(PC->GetCharacter());
+		if (Character && Character->DefaultGun)
+		{
+			ALaylaGun* DefaultGun = GetWorld()->SpawnActor<ALaylaGun>(Character->DefaultGun);
+			Character->AddGun(DefaultGun);
+		}
+		
+		PC->ClientGameStarted();
 	}
 }

@@ -70,6 +70,7 @@ public:
 	void ShowDeathMessage(ALaylaPlayerState* KillerPlayerState,
 	ALaylaPlayerState* KilledPlayerState, const UDamageType* KillerDamageType);
 	void DrawDeathMessages();
+	void DrawKillOrKilled();
 	
 	// Menus
 	void DrawGameMenu();
@@ -80,6 +81,10 @@ public:
 	void HideScoreBoard();
 
 	void ToggleGameMenuVisibility();
+
+	
+	void ToggleWinVisibility(bool bVisible = false);
+	void ToggleLoseVisibility(bool bVisible = false);
 	
 protected:
 	UPROPERTY(EditAnywhere, Category = "UI")
@@ -99,6 +104,7 @@ protected:
 	
 	UPROPERTY(EditAnywhere, Category = "UI")
 	TSubclassOf<class UUserWidget> InventoryClass;
+
 	
 private:
 	
@@ -115,6 +121,13 @@ private:
 	bool bScoreBoardVisible = false;
 	bool bGameMenuVisible = false;
 
+	bool bKillOrKilledVisible = false;
+	
+	FTimerHandle TimerHandle_KillOrKilled;
 
+	void ShowKillOrKilled();
+	void HideKillOrKilled();
+	FString KillOrKilledMessage;
+	
 	TArray<FDeathMessage>DeathMessages;
 };

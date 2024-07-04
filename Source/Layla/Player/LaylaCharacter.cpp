@@ -15,8 +15,9 @@
 #include "Engine/DamageEvents.h"
 #include "GameType/FreeForAll/LaylaGameMode_FreeForAll.h"
 #include "Inventory/LaylaInventoryItem.h"
-#include "Layla/LaylaGun.h"
+#include "Weapon/LaylaGun.h"
 #include "Net/UnrealNetwork.h"
+#include "Weapon/LaylaGun_Instant.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
@@ -94,6 +95,67 @@ UAbilitySystemComponent* ALaylaCharacter::GetAbilitySystemComponent() const
 	return AbilitySystemComponent;
 }
 
+void ALaylaCharacter::ServerStartSlide_Implementation()
+{
+	StartSlide();
+}
+
+bool ALaylaCharacter::ServerStartSlide_Validate()
+{
+	if(!bSlide && !bIsDying && !bWasJumping)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+void ALaylaCharacter::StartSlide()
+{
+	// temporarily use Dash Tag
+	FGameplayTag SlideTag = FGameplayTag::RequestGameplayTag(FName("Event.Movement.Dash"));
+	AbilitySystemComponent->AddLooseGameplayTag(SlideTag);
+
+	float Duration = PlayAnimMontage(SlideMontage);
+	
+	if(GetLocalRole() == ROLE_Authority)
+	{
+		bSlide = true;
+		
+		if(Duration <= 0.f)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Play Slide Failed!"));
+			StopSlide();
+		}else
+		{
+			GetWorldTimerManager().SetTimer(SlideTimer, this, &ALaylaCharacter::StopSlide, Duration, false);
+		}
+	}
+}
+
+void ALaylaCharacter::StopSlide()
+{
+	// temporarily use Dash Tag
+	FGameplayTag SlideTag = FGameplayTag::RequestGameplayTag(FName("Event.Movement.Dash"));
+	AbilitySystemComponent->RemoveLooseGameplayTag(SlideTag);
+
+	if(GetLocalRole() == ROLE_Authority)
+	{
+		bSlide = false;	
+	}
+}
+
+void ALaylaCharacter::OnRep_Slide()
+{
+	if(bSlide)
+	{
+		StartSlide();
+	}else
+	{
+		StopSlide();
+	}
+}
+
 void ALaylaCharacter::SetRagdollPhysics()
 {
 	bool bInRagdoll = false;
@@ -163,6 +225,20 @@ ALaylaGun* ALaylaCharacter::GetPrimaryGun()
 ALaylaGun* ALaylaCharacter::GetSecondaryGun()
 {
 	return FindGun(FGameplayTag::RequestGameplayTag(FName("Weapon.Gun.Secondary")));
+}
+
+float ALaylaCharacter::GetCurrCrossHairSpread()
+{
+	float Spread = 0.0f;
+	if(CurrentGun)
+	{
+		ALaylaGun_Instant* CurrInstantGun = Cast<ALaylaGun_Instant>(CurrentGun);
+		if(CurrInstantGun && CurrInstantGun->BurstCounter > 0)
+		{
+			Spread+= CurrInstantGun->GetCurrentSpread()/ 100.0f;
+		}
+	}
+	return Spread;
 }
 
 
@@ -354,7 +430,7 @@ ALaylaGun* ALaylaCharacter::FindGun(const FGameplayTag& GunToFind)
 {
 	for(const auto Gun:GunList)
 	{
-		if(Gun->GunTag == GunToFind)
+		if(Gun && Gun->GunTag == GunToFind)
 		{
 			return Gun;
 		}
@@ -414,7 +490,10 @@ bool ALaylaCharacter::EquipGun_Validate(ALaylaGun* Gun)
 
 void ALaylaCharacter::UnEquipGun_Implementation(ALaylaGun* Gun)
 {
-
+	if(CurrentGun)
+	{
+		SetCurrentGun(nullptr, CurrentGun);
+	}
 }
 
 bool ALaylaCharacter::UnEquipGun_Validate(ALaylaGun* Gun)
@@ -538,7 +617,13 @@ void ALaylaCharacter::Look(const FInputActionValue& Value)
 
 void ALaylaCharacter::StartCrouch()
 {
-	Crouch();
+	if(GetVelocity().Length() > 450.0f)
+	{
+		ServerStartSlide();
+	}else{
+		Crouch();
+	}
+	
 	// Set bIsCrouched Directly is not Working, why?
 	// bIsCrouched = true;
 }
@@ -590,11 +675,12 @@ void ALaylaCharacter::EquipMeleeWeapon(const FInputActionValue& Value)
 {
 	// EquipmentManager->HandleInputToEquip(EEquipmentInput::EquipMelee);
 	// EquipGun(FindGun(FGameplayTag::RequestGameplayTag(FName("Weapon.Melee"))));
+	UnEquipGun(nullptr);
 }
 
 void ALaylaCharacter::DropGun(const FInputActionValue& Value)
 {
-		DropGun(CurrentGun);
+	DropGun(CurrentGun);
 }
 
 void ALaylaCharacter::StartADS(const FInputActionValue& Value)	
@@ -736,7 +822,7 @@ void ALaylaCharacter::Aim(const FInputActionValue& Value)
 
 void ALaylaCharacter::StartFire(const FInputActionValue& Value)
 {
-	if(CurrentGun){
+	if(CurrentGun && !bSlide){
 		StartGunFire();
 
 		ServerAddTag(FName("Event.Movement.WeaponFire"));
@@ -770,6 +856,7 @@ void ALaylaCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME(ALaylaCharacter, CurrentHealth);
 	DOREPLIFETIME(ALaylaCharacter, GunList);
 	DOREPLIFETIME(ALaylaCharacter, CurrentGun);
+	DOREPLIFETIME(ALaylaCharacter, bSlide);
 
 	DOREPLIFETIME_CONDITION(ALaylaCharacter, LastTakeHitInfo, COND_Custom);
 }
@@ -1118,22 +1205,22 @@ void ALaylaCharacter::OnHealthUpdate()
 	//客户端特定的功能
 	if (IsLocallyControlled())
 	{
-		FString healthMessage = FString::Printf(TEXT("You now have %f health remaining."), CurrentHealth);
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, healthMessage);
- 
-		if (CurrentHealth <= 0)
-		{
-			FString deathMessage = FString::Printf(TEXT("You have been killed."));
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, deathMessage);
-			
-		}
+		// FString healthMessage = FString::Printf(TEXT("You now have %f health remaining."), CurrentHealth);
+		// GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, healthMessage);
+ 	//
+		// if (CurrentHealth <= 0)
+		// {
+		// 	FString deathMessage = FString::Printf(TEXT("You have been killed."));
+		// 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, deathMessage);
+		// 	
+		// }
 	}
  
 	//服务器特定的功能
 	if (GetLocalRole() == ROLE_Authority)
 	{
-		FString healthMessage = FString::Printf(TEXT("%s now has %f health remaining."), *GetFName().ToString(), CurrentHealth);
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, healthMessage);
+		// FString healthMessage = FString::Printf(TEXT("%s now has %f health remaining."), *GetFName().ToString(), CurrentHealth);
+		// GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, healthMessage);
 	}
  
 	//在所有机器上都执行的函数。

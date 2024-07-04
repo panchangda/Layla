@@ -6,8 +6,7 @@
 #include "AbilitySystemInterface.h"
 #include "GameplayTagContainer.h"
 #include "InputActionValue.h"
-#include "LaylaTakeHitInfo.h"
-#include "Engine/DamageEvents.h"
+#include "Weapon/LaylaTakeHitInfo.h"
 #include "GameFramework/Character.h"
 #include "Logging/LogMacros.h"
 #include "LaylaCharacter.generated.h"
@@ -58,6 +57,24 @@ public:
 	UAnimMontage* DeathAnim_Left;
 	UPROPERTY(EditDefaultsOnly, Category = Animation)
 	UAnimMontage* DeathAnim_Right;
+
+	/* Slide Related */
+	UPROPERTY(EditDefaultsOnly, Category = Animation)
+	UAnimMontage* SlideMontage;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerStartSlide();
+
+	UPROPERTY(ReplicatedUsing=OnRep_Slide)
+	bool bSlide = false;
+	UFUNCTION()
+	void OnRep_Slide();
+	
+	void StartSlide();
+	void StopSlide();
+	
+	FTimerHandle SlideTimer;
+
 	
 	/** switch to ragdoll */
 	void SetRagdollPhysics();
@@ -75,7 +92,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	ALaylaGun* GetSecondaryGun();
-	
+
+	UFUNCTION(BlueprintCallable)
+	float GetCurrCrossHairSpread();
 	// UFUNCTION(BlueprintCallable)
 	// int32 GetPrimaryAmmoInInventory();
 	//
@@ -269,6 +288,9 @@ public:
 	void UnEquipGun(ALaylaGun* Gun);
 
 	ALaylaGun* FindGun(const FGameplayTag& GunTag);
+
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<class ALaylaGun> DefaultGun;
 	
 	// [Client + Server]
 	void SetCurrentGun(ALaylaGun* NewWeapon, ALaylaGun* LastWeapon);
@@ -295,6 +317,7 @@ public:
 	/* Gun Core: Start/Stop Fire, Reload */
 	void StartGunFire();
 	void StopGunFire();
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	bool bIsGunFiring = false;
 
 	void StartGunReload();
@@ -307,7 +330,7 @@ protected:
 
 	/** Called for looking input */
 	void Look(const FInputActionValue& Value);
-
+	
 	// for animation update
 	void StartCrouch();
 	void EndCrouch();

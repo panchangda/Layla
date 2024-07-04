@@ -21,6 +21,26 @@ void ALaylaPlayerController::OnDeathMessage(ALaylaPlayerState* KillerPlayerState
 	}
 }
 
+void ALaylaPlayerController::ClientGameStarted_Implementation()
+{
+	ALaylaHUD* LaylaHUD = GetLaylaHUD();
+	if(LaylaHUD)
+	{
+		LaylaHUD->ToggleWinVisibility(false);
+		LaylaHUD->ToggleLoseVisibility(false);
+	}
+}
+
+void ALaylaPlayerController::ClientSendRoundEndEvent_Implementation(bool bIsWinner, int32 ExpendedTimeInSeconds)
+{
+	ALaylaHUD* LaylaHUD = GetLaylaHUD();
+	if(LaylaHUD)
+	{
+		if(bIsWinner){LaylaHUD->ToggleWinVisibility(true);}
+		else{LaylaHUD->ToggleLoseVisibility(true);}
+	}
+}
+
 void ALaylaPlayerController::UnFreeze()
 {
 	ServerRestartPlayer();
@@ -71,6 +91,11 @@ void ALaylaPlayerController::SetupInputComponent()
 		EnhancedInputComponent->BindAction(GameMenuAction, ETriggerEvent::Triggered, this, &ALaylaPlayerController::ToggleGameMenuVisibility);
 	}
 	
+}
+
+void ALaylaPlayerController::GameHasEnded(AActor* EndGameFocus, bool bIsWinner)
+{
+	Super::GameHasEnded(EndGameFocus, bIsWinner);
 }
 
 ALaylaHUD* ALaylaPlayerController::GetLaylaHUD()

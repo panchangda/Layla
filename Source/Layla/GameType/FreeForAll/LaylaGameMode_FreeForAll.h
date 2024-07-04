@@ -23,6 +23,9 @@ public:
 	/** update remaining time */
 	virtual void DefaultTimer();
 
+	/** Tries to spawn the player's pawn */
+	virtual void RestartPlayer(AController* NewPlayer) override;
+	
 	/** called before startmatch */
 	virtual void HandleMatchIsWaitingToStart() override;
 
