@@ -112,10 +112,18 @@ bool ALaylaCharacter::ServerStartSlide_Validate()
 
 void ALaylaCharacter::StartSlide()
 {
+	
 	// temporarily use Dash Tag
 	FGameplayTag SlideTag = FGameplayTag::RequestGameplayTag(FName("Event.Movement.Dash"));
 	AbilitySystemComponent->AddLooseGameplayTag(SlideTag);
 
+	// Temporarily Attach Gun to Body
+	if(CurrentGun)
+	{
+		CurrentGun->AttachToPawn(CurrentGun->AttachSocket_Body, CurrentGun->AttachTransform_Body);
+	}
+
+	// Play Slide Montage
 	float Duration = PlayAnimMontage(SlideMontage);
 	
 	if(GetLocalRole() == ROLE_Authority)
@@ -131,6 +139,8 @@ void ALaylaCharacter::StartSlide()
 			GetWorldTimerManager().SetTimer(SlideTimer, this, &ALaylaCharacter::StopSlide, Duration, false);
 		}
 	}
+
+	
 }
 
 void ALaylaCharacter::StopSlide()
@@ -139,6 +149,13 @@ void ALaylaCharacter::StopSlide()
 	FGameplayTag SlideTag = FGameplayTag::RequestGameplayTag(FName("Event.Movement.Dash"));
 	AbilitySystemComponent->RemoveLooseGameplayTag(SlideTag);
 
+	// Reattach Gun to Hand
+	if(CurrentGun)
+	{
+		CurrentGun->AttachToPawn(CurrentGun->AttachSocket_Hand, CurrentGun->AttachTransform_Hand);
+	}
+	StopAnimMontage(SlideMontage);
+	
 	if(GetLocalRole() == ROLE_Authority)
 	{
 		bSlide = false;	

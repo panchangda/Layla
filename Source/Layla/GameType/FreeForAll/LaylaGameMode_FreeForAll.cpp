@@ -60,9 +60,8 @@ void ALaylaGameMode_FreeForAll::HandleMatchHasStarted()
 
 ALaylaGameMode_FreeForAll::ALaylaGameMode_FreeForAll()
 {
-	
 	// set default pawn class to our Blueprinted character
-	static ConstructorHelpers::FClassFinder<APawn> PlayerPawnBPClass(TEXT("/Game/BP/B_LaylaCharacter"));
+	static ConstructorHelpers::FClassFinder<APawn> PlayerPawnBPClass(TEXT("/Game/Characters/B_LaylaCharacter.B_LaylaCharacter"));
 	if (PlayerPawnBPClass.Class != NULL)
 	{
 		DefaultPawnClass = PlayerPawnBPClass.Class;
