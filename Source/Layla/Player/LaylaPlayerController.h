@@ -50,13 +50,22 @@ public:
 	/** Notifies the server that the client has suicided */
 	UFUNCTION(reliable, server, WithValidation)
 	void ServerSuicide();
+
+	UFUNCTION(reliable, client)
+	void ClientOnPostLogin();
 	
-	virtual void SetupInputComponent() override;
+	/** Notifies the server that the client has suicided */
+	UFUNCTION(reliable, server, WithValidation)
+	void ServerSetHero(struct FLaylaHeroStruct InHero);
 
 	virtual void GameHasEnded(class AActor* EndGameFocus = nullptr, bool bIsWinner = false) override;
 	
-	class ALaylaHUD* GetLaylaHUD();
+	virtual void SetupInputComponent() override;
+	virtual void BeginPlay() override;
+	virtual void PostInitializeComponents() override;
 	
+	class ALaylaHUD* GetLaylaHUD();
+
 private:
 	void ShowScoreBoard();
 	void HideScoreBoard();

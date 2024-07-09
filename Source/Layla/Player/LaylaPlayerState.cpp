@@ -6,6 +6,7 @@
 
 #include "Net/UnrealNetwork.h"
 #include "Player/LaylaPlayerController.h"
+#include "System/LaylaGameInstance.h"
 
 void ALaylaPlayerState::Reset()
 {
@@ -50,8 +51,22 @@ int32 ALaylaPlayerState::GetDeath()
 	return  NumDeaths;
 }
 
+void ALaylaPlayerState::SetPlayerHero(FLaylaHeroStruct NewPlayerHero)
+{
+	if(HasAuthority())
+	{
+		PlayerHero = NewPlayerHero;	
+	}
+}
+
+FLaylaHeroStruct ALaylaPlayerState::GetPlayerHero()
+{
+	return PlayerHero;
+}
+
+
 void ALaylaPlayerState::BroadcastDeath_Implementation(ALaylaPlayerState* KillerPlayerState,
-                                                                 const UDamageType* KillerDamageType, ALaylaPlayerState* KilledPlayerState)
+                                                      const UDamageType* KillerDamageType, ALaylaPlayerState* KilledPlayerState)
 {
 	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 	{
@@ -83,4 +98,5 @@ void ALaylaPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME(ALaylaPlayerState, NumKills);
 	DOREPLIFETIME(ALaylaPlayerState, NumDeaths);
 	DOREPLIFETIME(ALaylaPlayerState, MatchId);
+	DOREPLIFETIME(ALaylaPlayerState, PlayerHero);
 }

@@ -57,11 +57,10 @@ void ALaylaGameMode_FreeForAll::HandleMatchHasStarted()
 	}
 }
 
-
 ALaylaGameMode_FreeForAll::ALaylaGameMode_FreeForAll()
 {
 	// set default pawn class to our Blueprinted character
-	static ConstructorHelpers::FClassFinder<APawn> PlayerPawnBPClass(TEXT("/Game/Characters/B_LaylaCharacter.B_LaylaCharacter"));
+	static ConstructorHelpers::FClassFinder<APawn> PlayerPawnBPClass(TEXT("/Game/Characters/B_LaylaCharacter"));
 	if (PlayerPawnBPClass.Class != NULL)
 	{
 		DefaultPawnClass = PlayerPawnBPClass.Class;
@@ -142,6 +141,30 @@ void ALaylaGameMode_FreeForAll::DetermineMatchWinner()
 bool ALaylaGameMode_FreeForAll::IsWinner(ALaylaPlayerState* PlayerState) const
 {
 	return PlayerState && PlayerState == WinnerPlayerState; // && !PlayerState->IsQuitter();
+}
+
+void ALaylaGameMode_FreeForAll::PostLogin(APlayerController* NewPlayer)
+{
+	Super::PostLogin(NewPlayer);
+
+	// Notify Client, Client may want to send messages before beginplay
+	if(ALaylaPlayerController* LaylaPlayerController = Cast<ALaylaPlayerController>(NewPlayer))
+	{
+		LaylaPlayerController->ClientOnPostLogin();
+	}
+	
+}
+
+UClass* ALaylaGameMode_FreeForAll::GetDefaultPawnClassForController_Implementation(AController* InController)
+{
+	if (InController->IsA<ALaylaPlayerController>())
+	{
+		if(ALaylaPlayerState* LaylaPlayerState = Cast<ALaylaPlayerState>(InController->PlayerState))
+		{
+			return LaylaPlayerState->GetPlayerHero().CharacterBP;
+		}
+	}
+	return Super::GetDefaultPawnClassForController_Implementation(InController);
 }
 
 void ALaylaGameMode_FreeForAll::BeginPlay()

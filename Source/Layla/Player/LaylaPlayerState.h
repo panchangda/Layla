@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerState.h"
+#include "System/LaylaGameInstance.h"
 #include "LaylaPlayerState.generated.h"
 
 /**
@@ -35,6 +36,9 @@ public:
 	
 	int32 GetKill();
 	int32 GetDeath();
+
+	void SetPlayerHero(struct FLaylaHeroStruct NewPlayerHero);
+	FLaylaHeroStruct GetPlayerHero();
 protected:
 
 	/** number of kills */
@@ -52,6 +56,9 @@ protected:
 	/** Match id */
 	UPROPERTY(Replicated)
 	FString MatchId;
+
+	UPROPERTY(Replicated)
+	struct FLaylaHeroStruct PlayerHero;
 
 private:
 

@@ -7,6 +7,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "LaylaCharacter.h"
 #include "LaylaPlayerState.h"
+#include "System/LaylaGameInstance.h"
 #include "UI/LaylaHUD.h"
 
 class UEnhancedInputLocalPlayerSubsystem;
@@ -54,6 +55,19 @@ void ALaylaPlayerController::Suicide()
 	}
 }
 
+void ALaylaPlayerController::ClientOnPostLogin_Implementation()
+{
+	// Client, LS all need to initialize hero with its GameInstance
+	if(GetNetMode() != NM_DedicatedServer)
+	{
+		ULaylaGameInstance* LaylaGameInstance = Cast<ULaylaGameInstance>(GetGameInstance());
+		if(LaylaGameInstance)
+		{
+			ServerSetHero(LaylaGameInstance->GetHero());	
+		}
+	}
+}
+
 void ALaylaPlayerController::ServerSuicide_Implementation()
 {
 	if ( (GetPawn() != NULL) && ((GetWorld()->TimeSeconds - GetPawn()->CreationTime > 1) || (GetNetMode() == NM_Standalone)) )
@@ -91,6 +105,32 @@ void ALaylaPlayerController::SetupInputComponent()
 		EnhancedInputComponent->BindAction(GameMenuAction, ETriggerEvent::Triggered, this, &ALaylaPlayerController::ToggleGameMenuVisibility);
 	}
 	
+}
+
+void ALaylaPlayerController::BeginPlay()
+{
+
+}
+
+void ALaylaPlayerController::PostInitializeComponents()
+{
+	// Super Post InitializeComponents will initPlayerState at Server
+	Super::PostInitializeComponents();
+	// Role
+
+}
+
+void ALaylaPlayerController::ServerSetHero_Implementation(FLaylaHeroStruct InHero)
+{
+	ALaylaPlayerState* LaylaPlayerState = Cast<ALaylaPlayerState>(PlayerState);
+	if(LaylaPlayerState){
+		LaylaPlayerState->SetPlayerHero(InHero);
+	}
+}
+
+bool ALaylaPlayerController::ServerSetHero_Validate(FLaylaHeroStruct InHero)
+{
+	return true;
 }
 
 void ALaylaPlayerController::GameHasEnded(AActor* EndGameFocus, bool bIsWinner)

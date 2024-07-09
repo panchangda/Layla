@@ -55,13 +55,18 @@ class LAYLA_API ULaylaGameInstance : public UGameInstance
 	GENERATED_BODY()
 public:
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hero")
+	UPROPERTY(VisibleAnywhere,BlueprintReadWrite, Category = "Hero")
 	FLaylaHeroStruct Hero;
-
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hero")
 	UDataTable* HeroDataTable;
 
-	void Init() override;
+	virtual void Init() override;
 
 	void SetDefaultHero();
+
+	FLaylaHeroStruct GetHero();
+	
+private:
+
 };

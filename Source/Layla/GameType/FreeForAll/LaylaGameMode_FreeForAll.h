@@ -48,7 +48,12 @@ public:
 	UPROPERTY(transient)
 	class ALaylaPlayerState* WinnerPlayerState;
 
+	// 
+	virtual void PostLogin(APlayerController* NewPlayer) override;
 	
+	/** returns default pawn class for given controller */
+	virtual UClass* GetDefaultPawnClassForController_Implementation(AController* InController) override;
+
 protected:
 	virtual void BeginPlay() override;
 	

@@ -14,12 +14,14 @@ void ULaylaGameInstance::Init()
 
 void ULaylaGameInstance::SetDefaultHero()
 {
+	
 	if (HeroDataTable == nullptr)
 	{
 		UE_LOG(LogTemp, Error, TEXT("HeroDataTable is null! Please assign the DataTable in the editor."));
 		return;
 	}
 
+	// Use First Row as Default Hero
 	// 获取所有行的名称
 	TArray<FName> RowNames = HeroDataTable->GetRowNames();
 	if (RowNames.Num() == 0)
@@ -40,4 +42,9 @@ void ULaylaGameInstance::SetDefaultHero()
 	{
 		UE_LOG(LogTemp, Error, TEXT("Failed to find the first row in the HeroDataTable"));
 	}
+}
+
+FLaylaHeroStruct ULaylaGameInstance::GetHero()
+{
+	return Hero;
 }
