@@ -32,11 +32,26 @@ class ALaylaCharacter : public ACharacter, public IAbilitySystemInterface
 public:
 	ALaylaCharacter();
 
+
+	// Default abilities for this Character. These will be removed on Character death and regiven if Character respawns.
+	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Abilities")
+	TArray<TSubclassOf<class ULaylaGameplayAbility>> CharacterAbilities;
+	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Abilities")
+	TSubclassOf<class ULaylaGameplayAbility> Character_Ability_1;
+	
 	/** Pointer to the ability system component that is cached for convenience. */
 	UPROPERTY(Transient)
 	TObjectPtr<ULaylaAbilitySystem> AbilitySystemComponent;
 	
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
+	
+	// Grant abilities on the Server. The Ability Specs will be replicated to the owning client.
+	virtual void AddCharacterAbilities();
+
+	// Only called on the Server. Calls before Server's AcknowledgePossession.
+	virtual void PossessedBy(AController* NewController) override;
+	virtual void OnRep_PlayerState() override;
+
 	
 	/** Camera boom positioning the camera behind the character */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
@@ -47,6 +62,9 @@ public:
 	UCameraComponent* FollowCamera;
 
 
+	/** Default: AL, linked at BeginPlay */
+	UPROPERTY(EditDefaultsOnly, Category = Animation)
+	TSubclassOf<UAnimInstance> DefaultAnimLayers;
 
 	/** animation played on death */
 	UPROPERTY(EditDefaultsOnly, Category = Animation)
@@ -167,6 +185,12 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* DropGunAction;
+
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* Ability_1_Action;
+
+	virtual void ActivateAbility1();
 	
 	// UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Layla|Components" , meta=(AllowPrivateAccess = "true"))
 	// TObjectPtr<ULaylaEquipmentManager> EquipmentManager;
@@ -379,6 +403,7 @@ protected:
 protected:
 	// APawn interface
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	virtual void BindAbilityInput(UEnhancedInputComponent* EnhancedInputComponent);
 	virtual void PostInitializeComponents() override;
 	
 	// To add mapping context

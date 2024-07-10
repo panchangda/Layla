@@ -12,6 +12,7 @@
 #include "InputActionValue.h"
 #include "VectorTypes.h"
 #include "AbilitySystem/LaylaAbilitySystem.h"
+#include "AbilitySystem/LaylaGameplayAbility.h"
 #include "Engine/DamageEvents.h"
 #include "GameType/FreeForAll/LaylaGameMode_FreeForAll.h"
 #include "Inventory/LaylaInventoryItem.h"
@@ -23,7 +24,6 @@ DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
 //////////////////////////////////////////////////////////////////////////
 // ALaylaCharacter
-
 bool ALaylaCharacter::LineTraceAlongCamera(FHitResult& HitResult)
 {
 
@@ -88,11 +88,61 @@ ALaylaCharacter::ALaylaCharacter()
 	AbilitySystemComponent = CreateDefaultSubobject<ULaylaAbilitySystem>(TEXT("LaylaAbilitySystemComponent"));
 	// 设置此组件作为复制的主体，如果你的游戏支持多人游戏
 	AbilitySystemComponent->SetIsReplicated(true);
+	// Mixed mode means we only are replicated the GEs to ourself, not the GEs to simulated proxies. If another GDPlayerState (Hero) receives a GE,
+	// we won't be told about it by the Server. Attributes, GameplayTags, and GameplayCues will still replicate to us.
+	AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Mixed);
+}
+
+void ALaylaCharacter::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+
+	if (AbilitySystemComponent)
+	{
+		AbilitySystemComponent->InitAbilityActorInfo(this, this);
+	}
+
+	// ASC MixedMode replication requires that the ASC Owner's Owner be the Controller.
+	SetOwner(NewController);
+
+	
+	AddCharacterAbilities();
+
+	
+}
+
+void ALaylaCharacter::OnRep_PlayerState()
+{
+	Super::OnRep_PlayerState();
+	if (AbilitySystemComponent)
+	{
+		AbilitySystemComponent->InitAbilityActorInfo(this, this);
+	}
+	AddCharacterAbilities();
 }
 
 UAbilitySystemComponent* ALaylaCharacter::GetAbilitySystemComponent() const
 {
 	return AbilitySystemComponent;
+}
+
+void ALaylaCharacter::AddCharacterAbilities()
+{
+	
+	// Grant abilities, but only on the server	
+	if (GetLocalRole() != ROLE_Authority || !AbilitySystemComponent || AbilitySystemComponent->bCharacterAbilitiesGiven)
+	{
+		return;
+	}
+
+	for (TSubclassOf<ULaylaGameplayAbility>& StartupAbility : CharacterAbilities)
+	{
+		// AbilitySystemComponent->GiveAbility(
+		// 	FGameplayAbilitySpec(StartupAbility, StartupAbility.GetDefaultObject()->AbilityLevel, static_cast<int32>(StartupAbility.GetDefaultObject()->AbilityInputID), this));
+		AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(StartupAbility));
+	}
+
+	AbilitySystemComponent->bCharacterAbilitiesGiven = true;
 }
 
 void ALaylaCharacter::ServerStartSlide_Implementation()
@@ -273,6 +323,11 @@ void ALaylaCharacter::BeginPlay()
 {
 	// Call the base class  
 	Super::BeginPlay();
+
+	if(DefaultAnimLayers)
+	{
+		GetMesh()->GetAnimInstance()->LinkAnimClassLayers(DefaultAnimLayers);
+	}
 }
 
 void ALaylaCharacter::Tick(float DeltaSeconds)
@@ -379,12 +434,27 @@ void ALaylaCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 		EnhancedInputComponent->BindAction(EquipMeleeAction, ETriggerEvent::Triggered, this, &ALaylaCharacter::EquipMeleeWeapon);
 		EnhancedInputComponent->BindAction(DropGunAction, ETriggerEvent::Triggered, this, &ALaylaCharacter::DropGun);
 
+
+
+		// Ability
+		BindAbilityInput(EnhancedInputComponent);
 	}
 	else
 	{
 		UE_LOG(LogTemplateCharacter, Error, TEXT("'%s' Failed to find an Enhanced Input component! This template is built to use the Enhanced Input system. If you intend to use the legacy system, then you will need to update this C++ file."), *GetNameSafe(this));
 	}
 }
+
+void ALaylaCharacter::BindAbilityInput(UEnhancedInputComponent* EnhancedInputComponent)
+{
+	EnhancedInputComponent->BindAction(Ability_1_Action, ETriggerEvent::Triggered, this, &ALaylaCharacter::ActivateAbility1);
+}
+
+void ALaylaCharacter::ActivateAbility1()
+{
+	AbilitySystemComponent->TryActivateAbilityByClass(Character_Ability_1, true);
+}
+
 
 void ALaylaCharacter::PostInitializeComponents()
 {

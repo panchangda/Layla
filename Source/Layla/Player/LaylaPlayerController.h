@@ -61,6 +61,10 @@ public:
 	virtual void GameHasEnded(class AActor* EndGameFocus = nullptr, bool bIsWinner = false) override;
 	
 	virtual void SetupInputComponent() override;
+
+
+	virtual void AcknowledgePossession(APawn* P) override;
+	
 	virtual void BeginPlay() override;
 	virtual void PostInitializeComponents() override;
 	

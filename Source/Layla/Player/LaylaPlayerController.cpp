@@ -3,6 +3,7 @@
 
 #include "LaylaPlayerController.h"
 
+#include "AbilitySystemComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "LaylaCharacter.h"
@@ -107,22 +108,44 @@ void ALaylaPlayerController::SetupInputComponent()
 	
 }
 
+void ALaylaPlayerController::AcknowledgePossession(APawn* P)
+{
+	Super::AcknowledgePossession(P);
+
+	ALaylaCharacter* LaylaCharacter = Cast<ALaylaCharacter>(P);
+
+	if(LaylaCharacter)
+	{
+		LaylaCharacter->GetAbilitySystemComponent()->InitAbilityActorInfo(LaylaCharacter, LaylaCharacter);
+	}
+}
+
 void ALaylaPlayerController::BeginPlay()
 {
-
+	// too late
+	// ULaylaGameInstance* LaylaGameInstance = Cast<ULaylaGameInstance>(GetGameInstance());
+	// if(LaylaGameInstance)
+	// {
+	// 	ServerSetHero(LaylaGameInstance->GetHero());	
+	// }
 }
 
 void ALaylaPlayerController::PostInitializeComponents()
 {
 	// Super Post InitializeComponents will initPlayerState at Server
 	Super::PostInitializeComponents();
-	// Role
+	// Role is None
+	// ULaylaGameInstance* LaylaGameInstance = Cast<ULaylaGameInstance>(GetGameInstance());
+	// if(LaylaGameInstance)
+	// {
+	// 	ServerSetHero(LaylaGameInstance->GetHero());	
+	// }
 
 }
 
 void ALaylaPlayerController::ServerSetHero_Implementation(FLaylaHeroStruct InHero)
 {
-	ALaylaPlayerState* LaylaPlayerState = Cast<ALaylaPlayerState>(PlayerState);
+ 	ALaylaPlayerState* LaylaPlayerState = Cast<ALaylaPlayerState>(PlayerState);
 	if(LaylaPlayerState){
 		LaylaPlayerState->SetPlayerHero(InHero);
 	}

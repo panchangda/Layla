@@ -13,6 +13,7 @@ class LAYLA_API ULaylaAbilitySystem : public UAbilitySystemComponent
 	GENERATED_BODY()
 
 public:
+	bool bCharacterAbilitiesGiven = false;
 	// Sets default values for this component's properties
 	ULaylaAbilitySystem();
 
