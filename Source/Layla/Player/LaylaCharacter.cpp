@@ -114,11 +114,11 @@ void ALaylaCharacter::PossessedBy(AController* NewController)
 void ALaylaCharacter::OnRep_PlayerState()
 {
 	Super::OnRep_PlayerState();
-	if (AbilitySystemComponent)
-	{
-		AbilitySystemComponent->InitAbilityActorInfo(this, this);
-	}
-	AddCharacterAbilities();
+	// if (AbilitySystemComponent)
+	// {
+	// 	AbilitySystemComponent->InitAbilityActorInfo(this, this);
+	// }
+	// AddCharacterAbilities();
 }
 
 UAbilitySystemComponent* ALaylaCharacter::GetAbilitySystemComponent() const
@@ -141,7 +141,6 @@ void ALaylaCharacter::AddCharacterAbilities()
 		// 	FGameplayAbilitySpec(StartupAbility, StartupAbility.GetDefaultObject()->AbilityLevel, static_cast<int32>(StartupAbility.GetDefaultObject()->AbilityInputID), this));
 		AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(StartupAbility));
 	}
-
 	AbilitySystemComponent->bCharacterAbilitiesGiven = true;
 }
 
@@ -452,7 +451,7 @@ void ALaylaCharacter::BindAbilityInput(UEnhancedInputComponent* EnhancedInputCom
 
 void ALaylaCharacter::ActivateAbility1()
 {
-	AbilitySystemComponent->TryActivateAbilityByClass(Character_Ability_1, true);
+	AbilitySystemComponent->TryActivateAbilityByClass(Character_Ability_1);
 }
 
 

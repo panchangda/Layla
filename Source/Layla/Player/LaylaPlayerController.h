@@ -62,7 +62,6 @@ public:
 	
 	virtual void SetupInputComponent() override;
 
-
 	virtual void AcknowledgePossession(APawn* P) override;
 	
 	virtual void BeginPlay() override;
